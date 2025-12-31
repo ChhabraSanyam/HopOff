@@ -9,7 +9,15 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.hopoff.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "HopOff needs location access to set destination alarms and notify you when approaching your stop.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "HopOff needs background location access to monitor your location and trigger alarms when you approach your destination, even when the app is not active.",
+        "NSLocationAlwaysUsageDescription": "HopOff needs background location access to monitor your location and trigger alarms when you approach your destination, even when the app is not active.",
+        "UIBackgroundModes": ["location", "processing"]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +27,20 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.hopoff.app",
+      "versionCode": 1,
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "POST_NOTIFICATIONS",
+        "VIBRATE",
+        "WAKE_LOCK",
+        "RECEIVE_BOOT_COMPLETED"
+      ]
     },
     "web": {
       "output": "static",
@@ -38,7 +59,14 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "expo-secure-store",
+      "expo-location",
+      "expo-notifications",
+      "expo-task-manager",
+      "expo-sqlite",
+      "expo-audio",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,

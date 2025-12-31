@@ -1,50 +1,56 @@
-# Welcome to your Expo app 👋
+# HopOff! - Location-based Transport Alarms
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A React Native mobile application that helps public transport users avoid missing their stops by providing location-based alarms.
 
-## Get started
+## Project Setup
 
-1. Install dependencies
+This project was initialized with Expo CLI using TypeScript template and includes all necessary dependencies for the HopOff! application.
 
-   ```bash
-   npm install
-   ```
+### Dependencies Installed
 
-2. Start the app
+- **Core Framework**: Expo SDK, React Native with TypeScript
+- **State Management**: Redux Toolkit, React Redux
+- **Location Services**: Expo Location, Expo Task Manager
+- **Maps**: React Native Maps
+- **Notifications**: Expo Notifications
+- **Storage**: Expo Secure Store, Expo SQLite
+- **Development**: TypeScript types for React Native Maps
 
-   ```bash
-   npx expo start
-   ```
+### Project Structure
 
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+src/
+├── components/          # Reusable UI components
+├── screens/            # Screen components
+├── services/           # Business logic services
+├── store/              # Redux store and slices
+├── types/              # TypeScript type definitions
+├── utils/              # Utility functions
+└── hooks/              # Custom React hooks
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### Key Features
 
-## Learn more
+- Location-based alarms for public transport
+- Interactive map for destination selection
+- Geofencing for battery-efficient monitoring
+- Customizable alarm settings
+- Saved destinations management
+- Offline functionality
+- Battery optimization
 
-To learn more about developing your project with Expo, look at the following resources:
+### Development
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```bash
+# Start the development server
+npm start
 
-## Join the community
+# Run on iOS simulator
+npm run ios
 
-Join our community of developers creating universal apps.
+# Run on Android emulator
+npm run android
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+# Run on web
+npm run web
+```
