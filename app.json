@@ -42,10 +42,6 @@
         "RECEIVE_BOOT_COMPLETED"
       ]
     },
-    "web": {
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
-    },
     "plugins": [
       "expo-router",
       [
@@ -60,13 +56,10 @@
           }
         }
       ],
-      "expo-secure-store",
       "expo-location",
       "expo-notifications",
       "expo-task-manager",
-      "expo-sqlite",
-      "expo-audio",
-      "expo-asset"
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true,
