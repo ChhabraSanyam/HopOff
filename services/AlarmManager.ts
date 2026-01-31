@@ -64,6 +64,17 @@ export class AlarmManagerImpl implements AlarmManager {
       if (activeAlarmData) {
         const parsedAlarm = JSON.parse(activeAlarmData);
         this.activeAlarm = this.normalizeAlarm(parsedAlarm);
+
+        // If there's an active alarm with a geofence, re-register the event handler
+        if (this.activeAlarm?.geofenceId) {
+          const alarm = this.activeAlarm;
+          locationManager.setGeofenceEventHandler((event) => {
+            if (event.geofenceId === alarm.geofenceId) {
+              this.handleAlarmTrigger(alarm);
+            }
+          });
+          console.log(`Restored geofence event handler for alarm: ${alarm.id}`);
+        }
       }
       this.initialized = true;
     } catch (error) {

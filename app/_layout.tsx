@@ -4,6 +4,9 @@ import { useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Provider } from "react-redux";
 import { ToastProvider } from "../contexts/ToastContext";
+// Import GeofencingService early to ensure TaskManager.defineTask is called
+// This MUST be imported before any geofencing operations can occur
+import "../services/GeofencingService";
 import { store } from "../store";
 import { initializeFromManager } from "../store/slices/alarmSlice";
 import { loadSettings } from "../store/slices/settingsSlice";

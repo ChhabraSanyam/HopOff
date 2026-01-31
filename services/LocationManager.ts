@@ -268,20 +268,15 @@ export class LocationManagerImpl implements LocationManager {
     try {
       const success = await geofencingService.removeGeofence(geofenceId);
       if (!success) {
-        throw new LocationManagerError(
-          LocationError.GEOFENCE_NOT_FOUND,
-          `Geofence with ID ${geofenceId} not found`,
+        // Geofence might have already been removed or never existed
+        // This is not a critical error, just log it
+        console.warn(
+          `Geofence with ID ${geofenceId} was not found`,
         );
       }
     } catch (error) {
-      if (error instanceof LocationManagerError) {
-        throw error;
-      }
-      throw new LocationManagerError(
-        LocationError.GEOFENCING_UNAVAILABLE,
-        `Failed to remove geofence: ${geofenceId}`,
-        error instanceof Error ? error : new Error(String(error)),
-      );
+      // Log the error but don't throw - the geofence state has been cleaned up
+      console.error(`Failed to remove geofence ${geofenceId}:`, error);
     }
   }
 
