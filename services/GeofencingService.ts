@@ -128,7 +128,7 @@ class GeofencingService {
             this.activeGeofences.set(region.identifier, region);
           }
         }
-        if (this.debugMode) {
+        if (this.debugMode && this.activeGeofences.size > 0) {
           console.log(
             `Restored ${this.activeGeofences.size} geofences from storage`,
           );
@@ -373,10 +373,7 @@ class GeofencingService {
         } catch (stopError) {
           // Task might already be stopped or not exist - this is okay
           if (this.debugMode) {
-            console.warn(
-              "Error stopping geofencing:",
-              stopError,
-            );
+            console.warn("Error stopping geofencing:", stopError);
           }
         }
       }
@@ -417,10 +414,7 @@ class GeofencingService {
         } catch (stopError) {
           // Task might already be stopped - this is okay
           if (this.debugMode) {
-            console.warn(
-              "Error stopping geofencing:",
-              stopError,
-            );
+            console.warn("Error stopping geofencing:", stopError);
           }
         }
       }

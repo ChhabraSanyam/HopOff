@@ -102,7 +102,7 @@ export interface ConnectivityState {
 }
 
 export interface AlarmState {
-  activeAlarm: Alarm | null;
+  activeAlarms: Alarm[];
   isLoading: boolean;
   error: string | null;
 }

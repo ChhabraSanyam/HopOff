@@ -15,8 +15,14 @@ export const useSettingsState = () => useAppSelector((state) => state.settings);
 export const useUIState = () => useAppSelector((state) => state.ui);
 
 // Specific selectors for common use cases
-export const useActiveAlarm = () =>
-  useAppSelector((state) => state.alarm.activeAlarm);
+export const useActiveAlarms = () =>
+  useAppSelector((state) => state.alarm.activeAlarms);
+// Check if there are any active alarms
+export const useHasActiveAlarms = () =>
+  useAppSelector((state) => state.alarm.activeAlarms.length > 0);
+// Get alarm count
+export const useActiveAlarmCount = () =>
+  useAppSelector((state) => state.alarm.activeAlarms.length);
 export const useCurrentLocation = () =>
   useAppSelector((state) => state.location.currentLocation);
 export const useLocationPermission = () =>

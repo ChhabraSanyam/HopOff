@@ -1,13 +1,24 @@
 // Custom hook for alarm monitoring and real-time updates
-import { useCallback, useEffect, useRef } from 'react';
-import { locationManager } from '../services/LocationManager';
-import { notificationManager } from '../services/NotificationManager';
-import { useActiveAlarm, useAppDispatch, useCurrentLocation } from '../store/hooks';
-import { getCurrentLocation } from '../store/slices/locationSlice';
+import { useCallback, useEffect, useRef } from "react";
+import { locationManager } from "../services/LocationManager";
+import { notificationManager } from "../services/NotificationManager";
+import {
+  useActiveAlarms,
+  useAppDispatch,
+  useCurrentLocation,
+  useHasActiveAlarms,
+} from "../store/hooks";
+import { getCurrentLocation } from "../store/slices/locationSlice";
+import { Alarm, Coordinate } from "../types";
 
 interface UseAlarmMonitoringOptions {
   updateInterval?: number; // milliseconds
   enablePersistentNotification?: boolean;
+}
+
+interface AlarmDistance {
+  alarmId: string;
+  distance: number;
 }
 
 export const useAlarmMonitoring = (options: UseAlarmMonitoringOptions = {}) => {
@@ -17,45 +28,90 @@ export const useAlarmMonitoring = (options: UseAlarmMonitoringOptions = {}) => {
   } = options;
 
   const dispatch = useAppDispatch();
-  const activeAlarm = useActiveAlarm();
+  const activeAlarms = useActiveAlarms();
+  const hasActiveAlarms = useHasActiveAlarms();
   const currentLocation = useCurrentLocation();
-  
+
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const isMonitoringRef = useRef(false);
 
-  // Calculate distance between current location and destination
-  const calculateDistance = useCallback(() => {
-    if (!activeAlarm || !currentLocation) return null;
-    
-    try {
-      return locationManager.calculateDistance(
-        currentLocation,
-        activeAlarm.destination.coordinate
-      );
-    } catch (error) {
-      console.error('Error calculating distance:', error);
-      return null;
-    }
-  }, [activeAlarm, currentLocation]);
+  // Calculate distance between current location and a specific coordinate
+  const calculateDistanceToCoordinate = useCallback(
+    (coordinate: Coordinate): number | null => {
+      if (!currentLocation) return null;
 
-  // Update persistent notification with current distance
-  const updatePersistentNotification = useCallback(async (distance: number) => {
-    if (!activeAlarm || !enablePersistentNotification) return;
-    
+      try {
+        return locationManager.calculateDistance(currentLocation, coordinate);
+      } catch (error) {
+        console.error("Error calculating distance:", error);
+        return null;
+      }
+    },
+    [currentLocation],
+  );
+
+  // Calculate distances to all active alarms
+  const calculateAllDistances = useCallback((): AlarmDistance[] => {
+    if (!currentLocation || activeAlarms.length === 0) return [];
+
+    return activeAlarms
+      .map((alarm) => ({
+        alarmId: alarm.id,
+        distance:
+          calculateDistanceToCoordinate(alarm.destination.coordinate) ??
+          Infinity,
+      }))
+      .filter((d) => d.distance !== Infinity);
+  }, [activeAlarms, currentLocation, calculateDistanceToCoordinate]);
+
+  // Get the closest alarm (for notification purposes)
+  const getClosestAlarm = useCallback((): {
+    alarm: Alarm;
+    distance: number;
+  } | null => {
+    if (!currentLocation || activeAlarms.length === 0) return null;
+
+    let closest: { alarm: Alarm; distance: number } | null = null;
+
+    for (const alarm of activeAlarms) {
+      const distance = calculateDistanceToCoordinate(
+        alarm.destination.coordinate,
+      );
+      if (
+        distance !== null &&
+        (closest === null || distance < closest.distance)
+      ) {
+        closest = { alarm, distance };
+      }
+    }
+
+    return closest;
+  }, [activeAlarms, currentLocation, calculateDistanceToCoordinate]);
+
+  // Update persistent notification with closest alarm distance
+  const updatePersistentNotification = useCallback(async () => {
+    if (!enablePersistentNotification || activeAlarms.length === 0) return;
+
+    const closest = getClosestAlarm();
+    if (!closest) return;
+
     try {
-      if (activeAlarm.settings.persistentNotification) {
-        await notificationManager.showPersistentNotification(activeAlarm, distance);
+      if (closest.alarm.settings.persistentNotification) {
+        await notificationManager.showPersistentNotification(
+          closest.alarm,
+          closest.distance,
+        );
       }
     } catch (error) {
-      console.error('Error updating persistent notification:', error);
+      console.error("Error updating persistent notification:", error);
     }
-  }, [activeAlarm, enablePersistentNotification]);
+  }, [activeAlarms, enablePersistentNotification, getClosestAlarm]);
 
   // Start monitoring location updates
   const startMonitoring = useCallback(() => {
-    if (isMonitoringRef.current || !activeAlarm) return;
+    if (isMonitoringRef.current || !hasActiveAlarms) return;
 
-    console.log('Starting alarm monitoring with interval:', updateInterval);
+    console.log("Starting alarm monitoring with interval:", updateInterval);
     isMonitoringRef.current = true;
 
     // Get initial location
@@ -68,13 +124,13 @@ export const useAlarmMonitoring = (options: UseAlarmMonitoringOptions = {}) => {
     intervalRef.current = setInterval(() => {
       dispatch(getCurrentLocation());
     }, updateInterval) as unknown as NodeJS.Timeout;
-  }, [activeAlarm, dispatch, updateInterval]);
+  }, [hasActiveAlarms, dispatch, updateInterval]);
 
   // Stop monitoring location updates
   const stopMonitoring = useCallback(() => {
     if (!isMonitoringRef.current) return;
 
-    console.log('Stopping alarm monitoring');
+    console.log("Stopping alarm monitoring");
     isMonitoringRef.current = false;
 
     // Clear interval
@@ -87,9 +143,9 @@ export const useAlarmMonitoring = (options: UseAlarmMonitoringOptions = {}) => {
     locationManager.stopForegroundLocationUpdates();
   }, []);
 
-  // Effect to start/stop monitoring based on active alarm
+  // Effect to start/stop monitoring based on active alarms
   useEffect(() => {
-    if (activeAlarm) {
+    if (hasActiveAlarms) {
       startMonitoring();
     } else {
       stopMonitoring();
@@ -99,20 +155,21 @@ export const useAlarmMonitoring = (options: UseAlarmMonitoringOptions = {}) => {
     return () => {
       stopMonitoring();
     };
-  }, [activeAlarm, startMonitoring, stopMonitoring]);
+  }, [hasActiveAlarms, startMonitoring, stopMonitoring]);
 
   // Effect to update persistent notification when distance changes
   useEffect(() => {
-    const distance = calculateDistance();
-    if (distance !== null) {
-      updatePersistentNotification(distance);
+    if (hasActiveAlarms) {
+      updatePersistentNotification();
     }
-  }, [calculateDistance, updatePersistentNotification]);
+  }, [hasActiveAlarms, updatePersistentNotification]);
 
   return {
-    distance: calculateDistance(),
+    distances: calculateAllDistances(),
+    closestAlarm: getClosestAlarm(),
     isMonitoring: isMonitoringRef.current,
     startMonitoring,
     stopMonitoring,
+    calculateDistanceToCoordinate,
   };
 };

@@ -19,8 +19,12 @@ const sanitizeAlarm = (alarm: Alarm | null): Alarm | null => {
   };
 };
 
+const sanitizeAlarms = (alarms: Alarm[]): Alarm[] => {
+  return alarms.map((alarm) => sanitizeAlarm(alarm)!);
+};
+
 const initialState: AlarmState = {
-  activeAlarm: null,
+  activeAlarms: [],
   isLoading: false,
   error: null,
 };
@@ -66,37 +70,57 @@ export const updateAlarmSettings = createAsyncThunk(
     settings: Partial<AlarmSettings>;
   }) => {
     await alarmManager.updateAlarmSettings(alarmId, settings);
-    const updatedAlarm = alarmManager.getActiveAlarm();
-    return updatedAlarm;
+    // Return updated alarms list
+    return await alarmManager.getActiveAlarms();
   },
 );
+
+// Async thunk to initialize alarm state from persisted storage
+export const initializeAlarmFromStorage = createAsyncThunk(
+  "alarm/initializeFromStorage",
+  async () => {
+    const activeAlarms = await alarmManager.getActiveAlarms();
+    return activeAlarms;
+  },
+);
+
+// Async thunk to cancel all alarms
+export const cancelAllAlarms = createAsyncThunk("alarm/cancelAll", async () => {
+  await alarmManager.cancelAllAlarms();
+});
 
 const alarmSlice = createSlice({
   name: "alarm",
   initialState,
   reducers: {
     // Synchronous actions
-    setActiveAlarm: (state, action: PayloadAction<Alarm | null>) => {
-      state.activeAlarm = sanitizeAlarm(action.payload);
+    setActiveAlarms: (state, action: PayloadAction<Alarm[]>) => {
+      state.activeAlarms = sanitizeAlarms(action.payload);
+    },
+    addAlarm: (state, action: PayloadAction<Alarm>) => {
+      const sanitized = sanitizeAlarm(action.payload);
+      if (sanitized) {
+        state.activeAlarms.push(sanitized);
+      }
+    },
+    removeAlarm: (state, action: PayloadAction<string>) => {
+      state.activeAlarms = state.activeAlarms.filter(
+        (alarm) => alarm.id !== action.payload,
+      );
     },
     setGeofenceId: (
       state,
       action: PayloadAction<{ alarmId: string; geofenceId: string }>,
     ) => {
-      if (
-        state.activeAlarm &&
-        state.activeAlarm.id === action.payload.alarmId
-      ) {
-        state.activeAlarm.geofenceId = action.payload.geofenceId;
+      const alarm = state.activeAlarms.find(
+        (a) => a.id === action.payload.alarmId,
+      );
+      if (alarm) {
+        alarm.geofenceId = action.payload.geofenceId;
       }
     },
     clearError: (state) => {
       state.error = null;
-    },
-    // Initialize state from AlarmManager (for app startup)
-    initializeFromManager: (state) => {
-      const activeAlarm = alarmManager.getActiveAlarm();
-      state.activeAlarm = sanitizeAlarm(activeAlarm);
     },
   },
   extraReducers: (builder) => {
@@ -109,7 +133,10 @@ const alarmSlice = createSlice({
       })
       .addCase(createAlarm.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.activeAlarm = sanitizeAlarm(action.payload);
+        const sanitized = sanitizeAlarm(action.payload);
+        if (sanitized) {
+          state.activeAlarms.push(sanitized);
+        }
         state.error = null;
       })
       .addCase(createAlarm.rejected, (state, action) => {
@@ -121,21 +148,39 @@ const alarmSlice = createSlice({
         state.isLoading = true;
         state.error = null;
       })
-      .addCase(cancelAlarm.fulfilled, (state) => {
+      .addCase(cancelAlarm.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.activeAlarm = null;
+        state.activeAlarms = state.activeAlarms.filter(
+          (alarm) => alarm.id !== action.payload,
+        );
         state.error = null;
       })
       .addCase(cancelAlarm.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.error.message || "Failed to cancel alarm";
       })
+      // Cancel all alarms
+      .addCase(cancelAllAlarms.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(cancelAllAlarms.fulfilled, (state) => {
+        state.isLoading = false;
+        state.activeAlarms = [];
+        state.error = null;
+      })
+      .addCase(cancelAllAlarms.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.error.message || "Failed to cancel all alarms";
+      })
       // Trigger alarm
       .addCase(triggerAlarm.pending, (state) => {
         state.error = null;
       })
-      .addCase(triggerAlarm.fulfilled, (state) => {
-        state.activeAlarm = null;
+      .addCase(triggerAlarm.fulfilled, (state, action) => {
+        state.activeAlarms = state.activeAlarms.filter(
+          (alarm) => alarm.id !== action.payload.id,
+        );
         state.error = null;
       })
       .addCase(triggerAlarm.rejected, (state, action) => {
@@ -148,17 +193,34 @@ const alarmSlice = createSlice({
       })
       .addCase(updateAlarmSettings.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.activeAlarm = sanitizeAlarm(action.payload);
+        state.activeAlarms = sanitizeAlarms(action.payload);
         state.error = null;
       })
       .addCase(updateAlarmSettings.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.error.message || "Failed to update alarm settings";
+      })
+      // Initialize alarm from storage
+      .addCase(initializeAlarmFromStorage.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(initializeAlarmFromStorage.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.activeAlarms = sanitizeAlarms(action.payload);
+      })
+      .addCase(initializeAlarmFromStorage.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.error.message || "Failed to initialize alarm";
       });
   },
 });
 
-export const { setActiveAlarm, setGeofenceId, clearError, initializeFromManager } =
-  alarmSlice.actions;
+export const {
+  setActiveAlarms,
+  addAlarm,
+  removeAlarm,
+  setGeofenceId,
+  clearError,
+} = alarmSlice.actions;
 
 export default alarmSlice.reducer;

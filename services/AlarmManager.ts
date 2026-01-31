@@ -1,6 +1,6 @@
 // Alarm management service for HopOff app
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Alarm, AlarmSettings, Destination } from "../types";
+import { Alarm, AlarmSettings, Coordinate, Destination } from "../types";
 import { ErrorHandler, handleAsyncOperation } from "../utils/ErrorHandler";
 import { connectivityManager } from "./ConnectivityManager";
 import { fallbackLocationService } from "./FallbackLocationService";
@@ -13,21 +13,25 @@ export interface AlarmManager {
     settings: AlarmSettings,
   ): Promise<Alarm>;
   cancelAlarm(alarmId: string): Promise<void>;
-  getActiveAlarm(): Alarm | null;
+  getActiveAlarms(): Promise<Alarm[]>;
   triggerAlarm(alarm: Alarm): Promise<void>;
   updateAlarmSettings(
     alarmId: string,
     settings: Partial<AlarmSettings>,
   ): Promise<void>;
+  hasGeofenceAtLocation(coordinate: Coordinate, radius?: number): boolean;
 }
 
 // Storage key for AsyncStorage
-const STORAGE_KEY = "hopoff_active_alarm";
+const STORAGE_KEY = "hopoff_active_alarms";
+
+// Distance threshold in meters to consider coordinates as "same location"
+const DUPLICATE_LOCATION_THRESHOLD = 50;
 
 export class AlarmManagerImpl implements AlarmManager {
-  private activeAlarm: Alarm | null = null;
+  private activeAlarms: Map<string, Alarm> = new Map();
+  private fallbackPollingIds: Map<string, string> = new Map();
   private initialized = false;
-  private fallbackPollingId: string | null = null;
 
   /**
    * Ensure alarms and nested destinations use serializable ISO strings
@@ -49,6 +53,24 @@ export class AlarmManagerImpl implements AlarmManager {
     };
   }
 
+  /**
+   * Calculate distance between two coordinates using Haversine formula
+   */
+  private calculateDistance(from: Coordinate, to: Coordinate): number {
+    const R = 6371e3; // Earth's radius in meters
+    const φ1 = (from.latitude * Math.PI) / 180;
+    const φ2 = (to.latitude * Math.PI) / 180;
+    const Δφ = ((to.latitude - from.latitude) * Math.PI) / 180;
+    const Δλ = ((to.longitude - from.longitude) * Math.PI) / 180;
+
+    const a =
+      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c;
+  }
+
   constructor() {
     this.initialize();
   }
@@ -60,21 +82,20 @@ export class AlarmManagerImpl implements AlarmManager {
     if (this.initialized) return;
 
     try {
-      const activeAlarmData = await AsyncStorage.getItem(STORAGE_KEY);
-      if (activeAlarmData) {
-        const parsedAlarm = JSON.parse(activeAlarmData);
-        this.activeAlarm = this.normalizeAlarm(parsedAlarm);
-
-        // If there's an active alarm with a geofence, re-register the event handler
-        if (this.activeAlarm?.geofenceId) {
-          const alarm = this.activeAlarm;
-          locationManager.setGeofenceEventHandler((event) => {
-            if (event.geofenceId === alarm.geofenceId) {
-              this.handleAlarmTrigger(alarm);
-            }
-          });
-          console.log(`Restored geofence event handler for alarm: ${alarm.id}`);
+      const alarmsData = await AsyncStorage.getItem(STORAGE_KEY);
+      if (alarmsData) {
+        const parsedAlarms: Alarm[] = JSON.parse(alarmsData);
+        for (const alarm of parsedAlarms) {
+          const normalizedAlarm = this.normalizeAlarm(alarm);
+          if (normalizedAlarm) {
+            this.activeAlarms.set(normalizedAlarm.id, normalizedAlarm);
+          }
         }
+
+        // Re-register geofence event handlers for all alarms with geofences
+        this.setupGeofenceEventHandlers();
+
+        console.log(`Restored ${this.activeAlarms.size} alarms from storage`);
       }
       this.initialized = true;
     } catch (error) {
@@ -83,6 +104,66 @@ export class AlarmManagerImpl implements AlarmManager {
       await this.clearPersistedState();
       this.initialized = true;
     }
+  }
+
+  /**
+   * Setup geofence event handlers for all active alarms
+   */
+  private setupGeofenceEventHandlers(): void {
+    const alarmsWithGeofences = Array.from(this.activeAlarms.values()).filter(
+      (alarm) => alarm.geofenceId,
+    );
+
+    if (alarmsWithGeofences.length > 0) {
+      locationManager.setGeofenceEventHandler((event) => {
+        // Find the alarm that matches this geofence
+        const alarm = alarmsWithGeofences.find(
+          (a) => a.geofenceId === event.geofenceId,
+        );
+        if (alarm) {
+          this.handleAlarmTrigger(alarm);
+        }
+      });
+      console.log(
+        `Restored geofence event handlers for ${alarmsWithGeofences.length} alarms`,
+      );
+    }
+  }
+
+  /**
+   * Check if there's already a geofence at or near the specified location
+   */
+  hasGeofenceAtLocation(coordinate: Coordinate, radius?: number): boolean {
+    const threshold = radius || DUPLICATE_LOCATION_THRESHOLD;
+
+    for (const alarm of this.activeAlarms.values()) {
+      const distance = this.calculateDistance(
+        coordinate,
+        alarm.destination.coordinate,
+      );
+      if (distance <= threshold) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Get the alarm at a specific location (if any)
+   */
+  getAlarmAtLocation(coordinate: Coordinate, radius?: number): Alarm | null {
+    const threshold = radius || DUPLICATE_LOCATION_THRESHOLD;
+
+    for (const alarm of this.activeAlarms.values()) {
+      const distance = this.calculateDistance(
+        coordinate,
+        alarm.destination.coordinate,
+      );
+      if (distance <= threshold) {
+        return alarm;
+      }
+    }
+    return null;
   }
 
   /**
@@ -95,9 +176,13 @@ export class AlarmManagerImpl implements AlarmManager {
     const result = await handleAsyncOperation(async () => {
       await this.initialize();
 
-      // Cancel any existing alarm first
-      if (this.activeAlarm) {
-        await this.cancelAlarm(this.activeAlarm.id);
+      // Check for duplicate geofence location
+      const existingAlarm = this.getAlarmAtLocation(destination.coordinate);
+      if (existingAlarm) {
+        throw new Error(
+          `An alarm already exists near this location: "${existingAlarm.destination.name}". ` +
+            `Please cancel it first or choose a different location.`,
+        );
       }
 
       // Validate settings
@@ -113,8 +198,8 @@ export class AlarmManagerImpl implements AlarmManager {
       };
 
       // Store in memory and persist
-      this.activeAlarm = alarm;
-      await this.persistActiveAlarm();
+      this.activeAlarms.set(alarm.id, alarm);
+      await this.persistAlarms();
 
       // Set up location monitoring (geofencing or fallback)
       await this.setupLocationMonitoring(alarm);
@@ -136,18 +221,21 @@ export class AlarmManagerImpl implements AlarmManager {
     const result = await handleAsyncOperation(async () => {
       await this.initialize();
 
-      // If there's no active alarm or it doesn't match, treat as already cancelled
-      if (!this.activeAlarm || this.activeAlarm.id !== alarmId) {
+      const alarm = this.activeAlarms.get(alarmId);
+      if (!alarm) {
         console.log(`Alarm ${alarmId} already cancelled or doesn't exist`);
         return;
       }
 
-      // Clean up location monitoring
-      await this.cleanupLocationMonitoring();
+      // Clean up location monitoring for this specific alarm
+      await this.cleanupAlarmMonitoring(alarm);
 
-      // Clear active alarm
-      this.activeAlarm = null;
-      await this.clearActiveAlarmStorage();
+      // Remove alarm from map
+      this.activeAlarms.delete(alarmId);
+      await this.persistAlarms();
+
+      // Update geofence event handlers
+      this.setupGeofenceEventHandlers();
     }, "AlarmManager.cancelAlarm");
 
     if (!result.success) {
@@ -156,11 +244,33 @@ export class AlarmManagerImpl implements AlarmManager {
   }
 
   /**
-   * Get the currently active alarm
+   * Cancel all active alarms
    */
-  getActiveAlarm(): Alarm | null {
-    this.activeAlarm = this.normalizeAlarm(this.activeAlarm);
-    return this.activeAlarm;
+  async cancelAllAlarms(): Promise<void> {
+    await this.initialize();
+
+    const alarmIds = Array.from(this.activeAlarms.keys());
+    for (const alarmId of alarmIds) {
+      await this.cancelAlarm(alarmId);
+    }
+  }
+
+  /**
+   * Get all active alarms (waits for initialization)
+   */
+  async getActiveAlarms(): Promise<Alarm[]> {
+    await this.initialize();
+    return Array.from(this.activeAlarms.values()).map(
+      (alarm) => this.normalizeAlarm(alarm)!,
+    );
+  }
+
+  /**
+   * Get a specific alarm by ID
+   */
+  getAlarm(alarmId: string): Alarm | null {
+    const alarm = this.activeAlarms.get(alarmId);
+    return alarm ? this.normalizeAlarm(alarm) : null;
   }
 
   /**
@@ -169,7 +279,8 @@ export class AlarmManagerImpl implements AlarmManager {
   async triggerAlarm(alarm: Alarm): Promise<void> {
     await this.initialize();
 
-    if (!this.activeAlarm || this.activeAlarm.id !== alarm.id) {
+    const activeAlarm = this.activeAlarms.get(alarm.id);
+    if (!activeAlarm) {
       throw new Error("Cannot trigger alarm: no matching active alarm found");
     }
 
@@ -185,12 +296,15 @@ export class AlarmManagerImpl implements AlarmManager {
       // Continue to clear alarm even if notification fails
     }
 
-    // Clear active alarm after triggering notification
-    this.activeAlarm = null;
-    await this.clearActiveAlarmStorage();
+    // Clean up this specific alarm's monitoring
+    await this.cleanupAlarmMonitoring(activeAlarm);
 
-    // Clean up location monitoring
-    await this.cleanupLocationMonitoring();
+    // Remove this alarm
+    this.activeAlarms.delete(alarm.id);
+    await this.persistAlarms();
+
+    // Update geofence event handlers
+    this.setupGeofenceEventHandlers();
   }
 
   /**
@@ -202,17 +316,19 @@ export class AlarmManagerImpl implements AlarmManager {
   ): Promise<void> {
     await this.initialize();
 
-    if (!this.activeAlarm || this.activeAlarm.id !== alarmId) {
+    const alarm = this.activeAlarms.get(alarmId);
+    if (!alarm) {
       throw new Error(`No active alarm found with ID: ${alarmId}`);
     }
 
     // Validate new settings
-    const updatedSettings = { ...this.activeAlarm.settings, ...settings };
+    const updatedSettings = { ...alarm.settings, ...settings };
     this.validateAlarmSettings(updatedSettings);
 
     // Update alarm settings
-    this.activeAlarm.settings = updatedSettings;
-    await this.persistActiveAlarm();
+    alarm.settings = updatedSettings;
+    this.activeAlarms.set(alarmId, alarm);
+    await this.persistAlarms();
   }
 
   /**
@@ -228,35 +344,17 @@ export class AlarmManagerImpl implements AlarmManager {
   }
 
   /**
-   * Persist the active alarm to AsyncStorage
+   * Persist all alarms to AsyncStorage
    */
-  private async persistActiveAlarm(): Promise<void> {
-    const serializedAlarm = this.normalizeAlarm(this.activeAlarm);
-
-    // Keep in-memory state consistent
-    this.activeAlarm = serializedAlarm;
-
-    if (!serializedAlarm) {
-      await this.clearActiveAlarmStorage();
-      return;
-    }
-
+  private async persistAlarms(): Promise<void> {
     try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(serializedAlarm));
+      const alarms = Array.from(this.activeAlarms.values()).map((alarm) =>
+        this.normalizeAlarm(alarm),
+      );
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(alarms));
     } catch (error) {
-      console.error("Failed to persist active alarm:", error);
+      console.error("Failed to persist alarms:", error);
       throw new Error("Failed to save alarm state");
-    }
-  }
-
-  /**
-   * Clear active alarm from AsyncStorage
-   */
-  private async clearActiveAlarmStorage(): Promise<void> {
-    try {
-      await AsyncStorage.removeItem(STORAGE_KEY);
-    } catch (error) {
-      console.error("Failed to clear active alarm storage:", error);
     }
   }
 
@@ -266,6 +364,8 @@ export class AlarmManagerImpl implements AlarmManager {
   private async clearPersistedState(): Promise<void> {
     try {
       await AsyncStorage.removeItem(STORAGE_KEY);
+      this.activeAlarms.clear();
+      this.fallbackPollingIds.clear();
     } catch (error) {
       console.error("Failed to clear persisted state:", error);
     }
@@ -288,17 +388,12 @@ export class AlarmManagerImpl implements AlarmManager {
           );
 
           // Update alarm with geofence ID
-          if (this.activeAlarm && this.activeAlarm.id === alarm.id) {
-            this.activeAlarm.geofenceId = geofenceId;
-            await this.persistActiveAlarm();
+          const storedAlarm = this.activeAlarms.get(alarm.id);
+          if (storedAlarm) {
+            storedAlarm.geofenceId = geofenceId;
+            this.activeAlarms.set(alarm.id, storedAlarm);
+            await this.persistAlarms();
           }
-
-          // Set up geofence event handler
-          locationManager.setGeofenceEventHandler((event) => {
-            if (event.geofenceId === geofenceId) {
-              this.handleAlarmTrigger(alarm);
-            }
-          });
 
           console.log(`Geofencing setup successful for alarm: ${alarm.id}`);
           return;
@@ -312,11 +407,11 @@ export class AlarmManagerImpl implements AlarmManager {
 
       // Fall back to location polling
       console.log("Using fallback location polling for alarm:", alarm.id);
-      this.fallbackPollingId =
-        await fallbackLocationService.startLocationPolling(
-          alarm,
-          (triggeredAlarm) => this.handleAlarmTrigger(triggeredAlarm),
-        );
+      const pollingId = await fallbackLocationService.startLocationPolling(
+        alarm,
+        (triggeredAlarm) => this.handleAlarmTrigger(triggeredAlarm),
+      );
+      this.fallbackPollingIds.set(alarm.id, pollingId);
     } catch (error) {
       console.error("Failed to set up location monitoring:", error);
       throw new Error("Unable to set up location monitoring for alarm");
@@ -324,33 +419,31 @@ export class AlarmManagerImpl implements AlarmManager {
   }
 
   /**
-   * Clean up location monitoring (geofencing and fallback)
+   * Clean up location monitoring for a specific alarm
    */
-  private async cleanupLocationMonitoring(): Promise<void> {
+  private async cleanupAlarmMonitoring(alarm: Alarm): Promise<void> {
     try {
       // Clean up geofencing if active
-      if (this.activeAlarm?.geofenceId) {
+      if (alarm.geofenceId) {
         try {
-          await locationManager.removeGeofence(this.activeAlarm.geofenceId);
-          locationManager.removeGeofenceEventHandler();
+          await locationManager.removeGeofence(alarm.geofenceId);
         } catch (error) {
           console.warn("Error removing geofence:", error);
         }
       }
 
       // Clean up fallback polling if active
-      if (this.fallbackPollingId) {
+      const pollingId = this.fallbackPollingIds.get(alarm.id);
+      if (pollingId) {
         try {
-          await fallbackLocationService.stopLocationPolling(
-            this.fallbackPollingId,
-          );
-          this.fallbackPollingId = null;
+          await fallbackLocationService.stopLocationPolling(pollingId);
+          this.fallbackPollingIds.delete(alarm.id);
         } catch (error) {
           console.warn("Error stopping fallback polling:", error);
         }
       }
     } catch (error) {
-      console.error("Error during location monitoring cleanup:", error);
+      console.error("Error during alarm monitoring cleanup:", error);
     }
   }
 
@@ -371,21 +464,31 @@ export class AlarmManagerImpl implements AlarmManager {
   }
 
   /**
-   * Get monitoring status for the active alarm
+   * Get monitoring status for all alarms
    */
   getMonitoringStatus(): {
-    hasActiveAlarm: boolean;
-    usingGeofencing: boolean;
-    usingFallback: boolean;
-    geofenceId?: string;
-    fallbackPollingId?: string;
+    activeAlarmCount: number;
+    alarmsWithGeofencing: number;
+    alarmsWithFallback: number;
+    alarms: {
+      id: string;
+      destinationName: string;
+      usingGeofencing: boolean;
+      usingFallback: boolean;
+    }[];
   } {
+    const alarms = Array.from(this.activeAlarms.values()).map((alarm) => ({
+      id: alarm.id,
+      destinationName: alarm.destination.name,
+      usingGeofencing: alarm.geofenceId !== undefined,
+      usingFallback: this.fallbackPollingIds.has(alarm.id),
+    }));
+
     return {
-      hasActiveAlarm: this.activeAlarm !== null,
-      usingGeofencing: this.activeAlarm?.geofenceId !== undefined,
-      usingFallback: this.fallbackPollingId !== null,
-      geofenceId: this.activeAlarm?.geofenceId,
-      fallbackPollingId: this.fallbackPollingId || undefined,
+      activeAlarmCount: this.activeAlarms.size,
+      alarmsWithGeofencing: alarms.filter((a) => a.usingGeofencing).length,
+      alarmsWithFallback: alarms.filter((a) => a.usingFallback).length,
+      alarms,
     };
   }
 
@@ -393,10 +496,15 @@ export class AlarmManagerImpl implements AlarmManager {
    * Reset the alarm manager (for testing purposes)
    */
   async reset(): Promise<void> {
-    await this.cleanupLocationMonitoring();
-    this.activeAlarm = null;
+    // Clean up all alarms
+    for (const alarm of this.activeAlarms.values()) {
+      await this.cleanupAlarmMonitoring(alarm);
+    }
+
+    this.activeAlarms.clear();
+    this.fallbackPollingIds.clear();
     this.initialized = false;
-    this.fallbackPollingId = null;
+    locationManager.removeGeofenceEventHandler();
     await this.clearPersistedState();
   }
 }
