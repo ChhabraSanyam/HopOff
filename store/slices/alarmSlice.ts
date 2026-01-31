@@ -1,6 +1,6 @@
 // Alarm state slice for Redux store
 import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { alarmManager } from "../../services/AlarmManager";
+import { alarmManager, CreateAlarmResult } from "../../services/AlarmManager";
 import { Alarm, AlarmSettings, AlarmState, Destination } from "../../types";
 
 const toIsoString = (value: string | Date) =>
@@ -30,19 +30,13 @@ const initialState: AlarmState = {
 };
 
 // Async thunks for alarm lifecycle management
-export const createAlarm = createAsyncThunk(
-  "alarm/create",
-  async ({
-    destination,
-    settings,
-  }: {
-    destination: Destination;
-    settings: AlarmSettings;
-  }) => {
-    const alarm = await alarmManager.createAlarm(destination, settings);
-    return alarm;
-  },
-);
+export const createAlarm = createAsyncThunk<
+  CreateAlarmResult,
+  { destination: Destination; settings: AlarmSettings }
+>("alarm/create", async ({ destination, settings }) => {
+  const result = await alarmManager.createAlarm(destination, settings);
+  return result;
+});
 
 export const cancelAlarm = createAsyncThunk(
   "alarm/cancel",
@@ -133,8 +127,10 @@ const alarmSlice = createSlice({
       })
       .addCase(createAlarm.fulfilled, (state, action) => {
         state.isLoading = false;
-        const sanitized = sanitizeAlarm(action.payload);
-        if (sanitized) {
+        const { alarm, isExisting } = action.payload;
+        const sanitized = sanitizeAlarm(alarm);
+        // Only add to state if it's a new alarm (not an existing duplicate)
+        if (sanitized && !isExisting) {
           state.activeAlarms.push(sanitized);
         }
         state.error = null;

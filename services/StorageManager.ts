@@ -18,6 +18,7 @@ const SETTINGS_KEY = 'user_settings';
 const defaultSettings: UserSettings = {
   defaultTriggerRadius: 200,
   vibrationEnabled: true,
+  persistentNotificationEnabled: true,
   batteryOptimizationEnabled: true,
   batteryOptimizationLevel: 'auto',
   lowBatteryThreshold: 0.2,

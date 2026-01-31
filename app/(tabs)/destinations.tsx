@@ -112,9 +112,30 @@ const SavedDestinationsScreen: React.FC = () => {
       };
 
       // Create the alarm
-      await dispatch(
+      const result = await dispatch(
         createAlarm({ destination, settings: alarmSettings }) as any,
       ).unwrap();
+
+      // Check if this was an existing alarm at the same location
+      if (result.isExisting) {
+        Alert.alert(
+          "Alarm Already Exists",
+          result.message || `An alarm is already set for this location.`,
+          [
+            {
+              text: "View Alarm",
+              onPress: () => {
+                router.push("/alarm");
+              },
+            },
+            {
+              text: "OK",
+              style: "cancel",
+            },
+          ],
+        );
+        return;
+      }
 
       // Navigate to alarm screen
       Alert.alert(

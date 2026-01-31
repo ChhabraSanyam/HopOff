@@ -11,7 +11,7 @@ export interface AlarmManager {
   createAlarm(
     destination: Destination,
     settings: AlarmSettings,
-  ): Promise<Alarm>;
+  ): Promise<CreateAlarmResult>;
   cancelAlarm(alarmId: string): Promise<void>;
   getActiveAlarms(): Promise<Alarm[]>;
   triggerAlarm(alarm: Alarm): Promise<void>;
@@ -27,6 +27,13 @@ const STORAGE_KEY = "hopoff_active_alarms";
 
 // Distance threshold in meters to consider coordinates as "same location"
 const DUPLICATE_LOCATION_THRESHOLD = 50;
+
+// Result type for createAlarm to handle duplicates gracefully
+export interface CreateAlarmResult {
+  alarm: Alarm;
+  isExisting: boolean;
+  message?: string;
+}
 
 export class AlarmManagerImpl implements AlarmManager {
   private activeAlarms: Map<string, Alarm> = new Map();
@@ -168,21 +175,23 @@ export class AlarmManagerImpl implements AlarmManager {
 
   /**
    * Create a new alarm with the specified destination and settings
+   * Returns the existing alarm if one already exists near this location
    */
   async createAlarm(
     destination: Destination,
     settings: AlarmSettings,
-  ): Promise<Alarm> {
+  ): Promise<CreateAlarmResult> {
     const result = await handleAsyncOperation(async () => {
       await this.initialize();
 
-      // Check for duplicate geofence location
+      // Check for duplicate geofence location - return existing alarm gracefully
       const existingAlarm = this.getAlarmAtLocation(destination.coordinate);
       if (existingAlarm) {
-        throw new Error(
-          `An alarm already exists near this location: "${existingAlarm.destination.name}". ` +
-            `Please cancel it first or choose a different location.`,
-        );
+        return {
+          alarm: existingAlarm,
+          isExisting: true,
+          message: `An alarm already exists near this location: "${existingAlarm.destination.name}"`,
+        };
       }
 
       // Validate settings
@@ -204,7 +213,10 @@ export class AlarmManagerImpl implements AlarmManager {
       // Set up location monitoring (geofencing or fallback)
       await this.setupLocationMonitoring(alarm);
 
-      return alarm;
+      return {
+        alarm,
+        isExisting: false,
+      };
     }, "AlarmManager.createAlarm");
 
     if (!result.success) {

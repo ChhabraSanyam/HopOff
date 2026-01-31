@@ -461,6 +461,7 @@ export function createDefaultUserSettings(): UserSettings {
   return {
     defaultTriggerRadius: 200,
     vibrationEnabled: true,
+    persistentNotificationEnabled: true,
     batteryOptimizationEnabled: true,
     batteryOptimizationLevel: "auto",
     lowBatteryThreshold: 0.3,

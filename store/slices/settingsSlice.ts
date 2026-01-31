@@ -7,6 +7,7 @@ import { validateUserSettings } from '../../utils';
 const initialState: UserSettings & { isLoading: boolean; error: string | null } = {
   defaultTriggerRadius: 200, // 200m default
   vibrationEnabled: true,
+  persistentNotificationEnabled: true,
   batteryOptimizationEnabled: true,
   batteryOptimizationLevel: 'auto',
   lowBatteryThreshold: 0.30, // 30%
@@ -39,6 +40,7 @@ export const saveSettings = createAsyncThunk(
       const currentSettings: UserSettings = {
         defaultTriggerRadius: state.settings.defaultTriggerRadius,
         vibrationEnabled: state.settings.vibrationEnabled,
+        persistentNotificationEnabled: state.settings.persistentNotificationEnabled,
         batteryOptimizationEnabled: state.settings.batteryOptimizationEnabled,
         batteryOptimizationLevel: state.settings.batteryOptimizationLevel,
         lowBatteryThreshold: state.settings.lowBatteryThreshold,
@@ -74,6 +76,7 @@ const settingsSlice = createSlice({
     resetSettings: (state) => {
       state.defaultTriggerRadius = 200;
       state.vibrationEnabled = true;
+      state.persistentNotificationEnabled = true;
       state.batteryOptimizationEnabled = true;
       state.batteryOptimizationLevel = 'auto';
       state.lowBatteryThreshold = 0.30;

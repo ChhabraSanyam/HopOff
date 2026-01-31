@@ -7,6 +7,7 @@ import {
   useAppDispatch,
   useCurrentLocation,
   useHasActiveAlarms,
+  useUserSettings,
 } from "../store/hooks";
 import { getCurrentLocation } from "../store/slices/locationSlice";
 import { Alarm, Coordinate } from "../types";
@@ -14,11 +15,6 @@ import { Alarm, Coordinate } from "../types";
 interface UseAlarmMonitoringOptions {
   updateInterval?: number; // milliseconds
   enablePersistentNotification?: boolean;
-}
-
-interface AlarmDistance {
-  alarmId: string;
-  distance: number;
 }
 
 export const useAlarmMonitoring = (options: UseAlarmMonitoringOptions = {}) => {
@@ -31,6 +27,7 @@ export const useAlarmMonitoring = (options: UseAlarmMonitoringOptions = {}) => {
   const activeAlarms = useActiveAlarms();
   const hasActiveAlarms = useHasActiveAlarms();
   const currentLocation = useCurrentLocation();
+  const userSettings = useUserSettings();
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const isMonitoringRef = useRef(false);
@@ -50,62 +47,45 @@ export const useAlarmMonitoring = (options: UseAlarmMonitoringOptions = {}) => {
     [currentLocation],
   );
 
-  // Calculate distances to all active alarms
-  const calculateAllDistances = useCallback((): AlarmDistance[] => {
-    if (!currentLocation || activeAlarms.length === 0) return [];
-
-    return activeAlarms
-      .map((alarm) => ({
-        alarmId: alarm.id,
-        distance:
-          calculateDistanceToCoordinate(alarm.destination.coordinate) ??
-          Infinity,
-      }))
-      .filter((d) => d.distance !== Infinity);
-  }, [activeAlarms, currentLocation, calculateDistanceToCoordinate]);
-
-  // Get the closest alarm (for notification purposes)
-  const getClosestAlarm = useCallback((): {
-    alarm: Alarm;
-    distance: number;
-  } | null => {
-    if (!currentLocation || activeAlarms.length === 0) return null;
-
-    let closest: { alarm: Alarm; distance: number } | null = null;
-
-    for (const alarm of activeAlarms) {
-      const distance = calculateDistanceToCoordinate(
-        alarm.destination.coordinate,
-      );
-      if (
-        distance !== null &&
-        (closest === null || distance < closest.distance)
-      ) {
-        closest = { alarm, distance };
-      }
-    }
-
-    return closest;
-  }, [activeAlarms, currentLocation, calculateDistanceToCoordinate]);
-
-  // Update persistent notification with closest alarm distance
+  // Update persistent notification with all alarm distances
   const updatePersistentNotification = useCallback(async () => {
-    if (!enablePersistentNotification || activeAlarms.length === 0) return;
+    if (!enablePersistentNotification || !userSettings.persistentNotificationEnabled || activeAlarms.length === 0) return;
 
-    const closest = getClosestAlarm();
-    if (!closest) return;
+    // Check if any alarm has persistent notification enabled
+    const alarmsWithNotification = activeAlarms.filter(
+      (alarm) => alarm.settings.persistentNotification,
+    );
+
+    if (alarmsWithNotification.length === 0) return;
 
     try {
-      if (closest.alarm.settings.persistentNotification) {
-        await notificationManager.showPersistentNotification(
-          closest.alarm,
-          closest.distance,
+      // Calculate distances for all alarms with notification enabled
+      const alarmDistances = alarmsWithNotification
+        .map((alarm) => {
+          const distance = calculateDistanceToCoordinate(
+            alarm.destination.coordinate,
+          );
+          return distance !== null ? { alarm, distance } : null;
+        })
+        .filter(
+          (item): item is { alarm: Alarm; distance: number } => item !== null,
         );
-      }
+
+      if (alarmDistances.length === 0) return;
+
+      // Use the new multiple alarms notification method
+      await notificationManager.showMultipleAlarmsPersistentNotification(
+        alarmDistances,
+      );
     } catch (error) {
       console.error("Error updating persistent notification:", error);
     }
-  }, [activeAlarms, enablePersistentNotification, getClosestAlarm]);
+  }, [
+    activeAlarms,
+    enablePersistentNotification,
+    userSettings.persistentNotificationEnabled,
+    calculateDistanceToCoordinate,
+  ]);
 
   // Start monitoring location updates
   const startMonitoring = useCallback(() => {
@@ -163,13 +143,4 @@ export const useAlarmMonitoring = (options: UseAlarmMonitoringOptions = {}) => {
       updatePersistentNotification();
     }
   }, [hasActiveAlarms, updatePersistentNotification]);
-
-  return {
-    distances: calculateAllDistances(),
-    closestAlarm: getClosestAlarm(),
-    isMonitoring: isMonitoringRef.current,
-    startMonitoring,
-    stopMonitoring,
-    calculateDistanceToCoordinate,
-  };
 };

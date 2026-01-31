@@ -50,6 +50,7 @@ export interface Alarm {
 export interface UserSettings {
   defaultTriggerRadius: number;
   vibrationEnabled: boolean;
+  persistentNotificationEnabled: boolean;
   batteryOptimizationEnabled: boolean;
   batteryOptimizationLevel: "auto" | "conservative" | "aggressive" | "disabled";
   lowBatteryThreshold: number; // 0-1 (percentage when to start optimizing)

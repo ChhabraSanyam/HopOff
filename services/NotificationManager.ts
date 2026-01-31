@@ -4,10 +4,18 @@ import { Platform, Vibration } from "react-native";
 import { Alarm } from "../types";
 // import { MetroLine, MetroStation } from "../metro/types/metro";
 
+export interface AlarmDistanceInfo {
+  alarm: Alarm;
+  distance: number;
+}
+
 export interface NotificationManager {
   requestPermissions(): Promise<boolean>;
   showAlarmNotification(alarm: Alarm): Promise<void>;
   showPersistentNotification(alarm: Alarm, distance: number): Promise<void>;
+  showMultipleAlarmsPersistentNotification(
+    alarms: AlarmDistanceInfo[],
+  ): Promise<void>;
   clearNotifications(): Promise<void>;
   triggerHapticFeedback(): Promise<void>;
   // // Metro-specific notifications
@@ -122,7 +130,7 @@ export class NotificationManagerImpl implements NotificationManager {
     await this.initializeNotificationChannels();
 
     const notificationContent: Notifications.NotificationContentInput = {
-      title: "🚌 HopOff! - Destination Reached",
+      title: "HopOff! - Destination Reached",
       body: `You're approaching ${alarm.destination.name}. Time to get ready!`,
       data: {
         alarmId: alarm.id,
@@ -165,7 +173,7 @@ export class NotificationManagerImpl implements NotificationManager {
         : `${Math.round(distance)} m`;
 
     const notificationContent: Notifications.NotificationContentInput = {
-      title: "🎯 HopOff! - Trip Active",
+      title: "HopOff! - Trip Active",
       body: `${distanceText} to ${alarm.destination.name}`,
       data: {
         alarmId: alarm.id,
@@ -175,6 +183,76 @@ export class NotificationManagerImpl implements NotificationManager {
       },
       sound: false, // No sound for persistent notifications
       sticky: true, // Keep notification visible
+      categoryIdentifier: "persistent",
+    };
+
+    // Add Android-specific properties
+    const androidContent = notificationContent as any;
+    if (Platform.OS === "android") {
+      androidContent.channelId = NotificationManagerImpl.PERSISTENT_CHANNEL_ID;
+      androidContent.priority = "low";
+    }
+
+    await Notifications.scheduleNotificationAsync({
+      identifier: NotificationManagerImpl.PERSISTENT_NOTIFICATION_ID,
+      content: notificationContent,
+      trigger: null,
+    });
+  }
+
+  async showMultipleAlarmsPersistentNotification(
+    alarms: AlarmDistanceInfo[],
+  ): Promise<void> {
+    await this.initializeNotificationChannels();
+
+    if (alarms.length === 0) {
+      // No alarms, clear persistent notification
+      await Notifications.dismissNotificationAsync(
+        NotificationManagerImpl.PERSISTENT_NOTIFICATION_ID,
+      );
+      return;
+    }
+
+    if (alarms.length === 1) {
+      // Single alarm, use the original method
+      await this.showPersistentNotification(
+        alarms[0].alarm,
+        alarms[0].distance,
+      );
+      return;
+    }
+
+    // Multiple alarms - show summary notification
+    // Sort by distance (closest first)
+    const sortedAlarms = [...alarms].sort((a, b) => a.distance - b.distance);
+    const closest = sortedAlarms[0];
+
+    const closestDistanceText =
+      closest.distance >= 1000
+        ? `${(closest.distance / 1000).toFixed(1)} km`
+        : `${Math.round(closest.distance)} m`;
+
+    // Create body with all alarm distances
+    const alarmsList = sortedAlarms
+      .map((info) => {
+        const dist =
+          info.distance >= 1000
+            ? `${(info.distance / 1000).toFixed(1)} km`
+            : `${Math.round(info.distance)} m`;
+        return `• ${dist} to ${info.alarm.destination.name}`;
+      })
+      .join("\n");
+
+    const notificationContent: Notifications.NotificationContentInput = {
+      title: `HopOff! - ${alarms.length} Active Trips`,
+      body: `Closest: ${closestDistanceText} to ${closest.alarm.destination.name}\n${alarmsList}`,
+      data: {
+        alarmCount: alarms.length,
+        closestAlarmId: closest.alarm.id,
+        type: "persistent-multiple",
+      },
+      sound: false,
+      sticky: true,
       categoryIdentifier: "persistent",
     };
 
@@ -220,122 +298,122 @@ export class NotificationManagerImpl implements NotificationManager {
     }
   }
 
-//   async showIntermediateStopNotification(
-//     station: MetroStation,
-//     destination: MetroStation,
-//     message: string,
-//   ): Promise<void> {
-//     await this.initializeNotificationChannels();
+  //   async showIntermediateStopNotification(
+  //     station: MetroStation,
+  //     destination: MetroStation,
+  //     message: string,
+  //   ): Promise<void> {
+  //     await this.initializeNotificationChannels();
 
-//     const notificationContent: Notifications.NotificationContentInput = {
-//       title: "🚇 Metro Alert - Intermediate Stop",
-//       body: message,
-//       data: {
-//         stationId: station.id,
-//         destinationId: destination.id,
-//         type: "intermediate",
-//       },
-//       sound: "default",
-//       categoryIdentifier: "metro-intermediate",
-//     };
+  //     const notificationContent: Notifications.NotificationContentInput = {
+  //       title: "🚇 Metro Alert - Intermediate Stop",
+  //       body: message,
+  //       data: {
+  //         stationId: station.id,
+  //         destinationId: destination.id,
+  //         type: "intermediate",
+  //       },
+  //       sound: "default",
+  //       categoryIdentifier: "metro-intermediate",
+  //     };
 
-//     // Add Android-specific properties
-//     const androidContent = notificationContent as any;
-//     if (Platform.OS === "android") {
-//       androidContent.channelId = NotificationManagerImpl.METRO_CHANNEL_ID;
-//       androidContent.priority = "default";
-//     }
+  //     // Add Android-specific properties
+  //     const androidContent = notificationContent as any;
+  //     if (Platform.OS === "android") {
+  //       androidContent.channelId = NotificationManagerImpl.METRO_CHANNEL_ID;
+  //       androidContent.priority = "default";
+  //     }
 
-//     await Notifications.scheduleNotificationAsync({
-//       identifier: NotificationManagerImpl.INTERMEDIATE_NOTIFICATION_ID,
-//       content: notificationContent,
-//       trigger: null,
-//     });
+  //     await Notifications.scheduleNotificationAsync({
+  //       identifier: NotificationManagerImpl.INTERMEDIATE_NOTIFICATION_ID,
+  //       content: notificationContent,
+  //       trigger: null,
+  //     });
 
-//     // Short vibration for intermediate stops
-//     Vibration.vibrate(100);
-//   }
+  //     // Short vibration for intermediate stops
+  //     Vibration.vibrate(100);
+  //   }
 
-//   async showTransferNotification(
-//     station: MetroStation,
-//     fromLine: MetroLine,
-//     toLine: MetroLine,
-//     message: string,
-//   ): Promise<void> {
-//     await this.initializeNotificationChannels();
+  //   async showTransferNotification(
+  //     station: MetroStation,
+  //     fromLine: MetroLine,
+  //     toLine: MetroLine,
+  //     message: string,
+  //   ): Promise<void> {
+  //     await this.initializeNotificationChannels();
 
-//     const notificationContent: Notifications.NotificationContentInput = {
-//       title: "🔄 Metro Transfer Required",
-//       body: message,
-//       data: {
-//         stationId: station.id,
-//         fromLineId: fromLine.id,
-//         toLineId: toLine.id,
-//         type: "transfer",
-//       },
-//       sound: "default",
-//       categoryIdentifier: "metro-transfer",
-//     };
+  //     const notificationContent: Notifications.NotificationContentInput = {
+  //       title: "🔄 Metro Transfer Required",
+  //       body: message,
+  //       data: {
+  //         stationId: station.id,
+  //         fromLineId: fromLine.id,
+  //         toLineId: toLine.id,
+  //         type: "transfer",
+  //       },
+  //       sound: "default",
+  //       categoryIdentifier: "metro-transfer",
+  //     };
 
-//     // Add Android-specific properties
-//     const androidContent = notificationContent as any;
-//     if (Platform.OS === "android") {
-//       androidContent.channelId = NotificationManagerImpl.METRO_CHANNEL_ID;
-//       androidContent.priority = "default";
-//     }
+  //     // Add Android-specific properties
+  //     const androidContent = notificationContent as any;
+  //     if (Platform.OS === "android") {
+  //       androidContent.channelId = NotificationManagerImpl.METRO_CHANNEL_ID;
+  //       androidContent.priority = "default";
+  //     }
 
-//     await Notifications.scheduleNotificationAsync({
-//       identifier: NotificationManagerImpl.TRANSFER_NOTIFICATION_ID,
-//       content: notificationContent,
-//       trigger: null,
-//     });
+  //     await Notifications.scheduleNotificationAsync({
+  //       identifier: NotificationManagerImpl.TRANSFER_NOTIFICATION_ID,
+  //       content: notificationContent,
+  //       trigger: null,
+  //     });
 
-//     // Medium vibration for transfers
-//     Vibration.vibrate(200);
-//   }
+  //     // Medium vibration for transfers
+  //     Vibration.vibrate(200);
+  //   }
 
-//   async showMetroRouteNotification(
-//     route: any,
-//     currentDistance: number,
-//   ): Promise<void> {
-//     await this.initializeNotificationChannels();
+  //   async showMetroRouteNotification(
+  //     route: any,
+  //     currentDistance: number,
+  //   ): Promise<void> {
+  //     await this.initializeNotificationChannels();
 
-//     const distanceText =
-//       currentDistance >= 1000
-//         ? `${(currentDistance / 1000).toFixed(1)} km`
-//         : `${Math.round(currentDistance)} m`;
+  //     const distanceText =
+  //       currentDistance >= 1000
+  //         ? `${(currentDistance / 1000).toFixed(1)} km`
+  //         : `${Math.round(currentDistance)} m`;
 
-//     const transferText =
-//       route.transfers.length > 0
-//         ? ` • ${route.transfers.length} transfer${route.transfers.length > 1 ? "s" : ""}`
-//         : "";
+  //     const transferText =
+  //       route.transfers.length > 0
+  //         ? ` • ${route.transfers.length} transfer${route.transfers.length > 1 ? "s" : ""}`
+  //         : "";
 
-//     const notificationContent: Notifications.NotificationContentInput = {
-//       title: "🚇 Metro Route Active",
-//       body: `${distanceText} to ${route.destination.name}${transferText}`,
-//       data: {
-//         routeId: route.id,
-//         distance: currentDistance,
-//         type: "metro-route",
-//       },
-//       sound: false,
-//       sticky: true,
-//       categoryIdentifier: "metro-route",
-//     };
+  //     const notificationContent: Notifications.NotificationContentInput = {
+  //       title: "🚇 Metro Route Active",
+  //       body: `${distanceText} to ${route.destination.name}${transferText}`,
+  //       data: {
+  //         routeId: route.id,
+  //         distance: currentDistance,
+  //         type: "metro-route",
+  //       },
+  //       sound: false,
+  //       sticky: true,
+  //       categoryIdentifier: "metro-route",
+  //     };
 
-//     // Add Android-specific properties
-//     const androidContent = notificationContent as any;
-//     if (Platform.OS === "android") {
-//       androidContent.channelId = NotificationManagerImpl.PERSISTENT_CHANNEL_ID;
-//       androidContent.priority = "low";
-//     }
+  //     // Add Android-specific properties
+  //     const androidContent = notificationContent as any;
+  //     if (Platform.OS === "android") {
+  //       androidContent.channelId = NotificationManagerImpl.PERSISTENT_CHANNEL_ID;
+  //       androidContent.priority = "low";
+  //     }
 
-//     await Notifications.scheduleNotificationAsync({
-//       identifier: NotificationManagerImpl.METRO_ROUTE_NOTIFICATION_ID,
-//       content: notificationContent,
-//       trigger: null,
-//     });
-//   }
+  //     await Notifications.scheduleNotificationAsync({
+  //       identifier: NotificationManagerImpl.METRO_ROUTE_NOTIFICATION_ID,
+  //       content: notificationContent,
+  //       trigger: null,
+  //     });
+  //   }
 }
 
 // Export singleton instance

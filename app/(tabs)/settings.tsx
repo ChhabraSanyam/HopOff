@@ -88,6 +88,7 @@ const SettingsScreen: React.FC = () => {
     const settingsToSave = {
       defaultTriggerRadius: settings.defaultTriggerRadius,
       vibrationEnabled: settings.vibrationEnabled,
+      persistentNotificationEnabled: settings.persistentNotificationEnabled,
       batteryOptimizationEnabled: settings.batteryOptimizationEnabled,
     };
 
@@ -120,6 +121,7 @@ const SettingsScreen: React.FC = () => {
               updateSettings({
                 defaultTriggerRadius: 200,
                 vibrationEnabled: true,
+                persistentNotificationEnabled: true,
                 batteryOptimizationEnabled: true,
               }),
             );
@@ -218,6 +220,20 @@ const SettingsScreen: React.FC = () => {
               value={settings.vibrationEnabled}
               onValueChange={(value) =>
                 handleSettingChange("vibrationEnabled", value)
+              }
+              trackColor={{ false: "#E5E5E7", true: "#007AFF" }}
+              thumbColor="#FFFFFF"
+            />
+          </SettingsRow>
+
+          <SettingsRow
+            label="Persistent Notification"
+            description="Show ongoing trip progress with distance updates"
+          >
+            <Switch
+              value={settings.persistentNotificationEnabled}
+              onValueChange={(value) =>
+                handleSettingChange("persistentNotificationEnabled", value)
               }
               trackColor={{ false: "#E5E5E7", true: "#007AFF" }}
               thumbColor="#FFFFFF"
