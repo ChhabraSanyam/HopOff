@@ -89,15 +89,10 @@ TaskManager.defineTask(GEOFENCING_TASK, async ({ data, error }) => {
         console.log(`Geofence entered: ${region.identifier}`);
       }
 
-      // Call the event handler
+      // Call the event handler - AlarmManager will handle cleanup
       if (_geofenceEventHandler) {
         _geofenceEventHandler(event);
       }
-
-      // Auto-remove the geofence after triggering (one-time alarm)
-      geofencingService.removeGeofence(region.identifier).catch((err) => {
-        console.error("Failed to auto-remove geofence:", err);
-      });
     }
   }
 });

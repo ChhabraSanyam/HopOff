@@ -117,20 +117,27 @@ export class AlarmManagerImpl implements AlarmManager {
    * Setup geofence event handlers for all active alarms
    */
   private setupGeofenceEventHandlers(): void {
+    // Set up a single event handler that dynamically looks up alarms
+    // This ensures newly created alarms are found even after handler is registered
+    locationManager.setGeofenceEventHandler((event) => {
+      // Look up alarms at trigger time, not registration time
+      const alarm = Array.from(this.activeAlarms.values()).find(
+        (a) => a.geofenceId === event.geofenceId,
+      );
+      if (alarm) {
+        console.log(
+          `Geofence event matched alarm: ${alarm.id} (${alarm.destination.name})`,
+        );
+        this.handleAlarmTrigger(alarm);
+      } else {
+        console.warn(`No alarm found for geofence: ${event.geofenceId}`);
+      }
+    });
+
     const alarmsWithGeofences = Array.from(this.activeAlarms.values()).filter(
       (alarm) => alarm.geofenceId,
     );
-
     if (alarmsWithGeofences.length > 0) {
-      locationManager.setGeofenceEventHandler((event) => {
-        // Find the alarm that matches this geofence
-        const alarm = alarmsWithGeofences.find(
-          (a) => a.geofenceId === event.geofenceId,
-        );
-        if (alarm) {
-          this.handleAlarmTrigger(alarm);
-        }
-      });
       console.log(
         `Restored geofence event handlers for ${alarmsWithGeofences.length} alarms`,
       );
