@@ -44,4 +44,6 @@ app-example
 .vscode
 .kiro
 
+.env
+
 metro
