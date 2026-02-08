@@ -141,18 +141,17 @@ export class NotificationManagerImpl implements NotificationManager {
       categoryIdentifier: "alarm",
     };
 
-    // Add Android-specific properties
-    const androidContent = notificationContent as any;
-    if (Platform.OS === "android") {
-      androidContent.channelId = NotificationManagerImpl.ALARM_CHANNEL_ID;
-      androidContent.priority = "max";
-    }
+    // Build trigger with channelId for Android, null for iOS
+    const trigger =
+      Platform.OS === "android"
+        ? { channelId: NotificationManagerImpl.ALARM_CHANNEL_ID }
+        : null;
 
     // Schedule the notification
     await Notifications.scheduleNotificationAsync({
       identifier: NotificationManagerImpl.ALARM_NOTIFICATION_ID,
       content: notificationContent,
-      trigger: null, // Show immediately
+      trigger,
     });
 
     // Trigger haptic feedback if enabled
@@ -186,17 +185,16 @@ export class NotificationManagerImpl implements NotificationManager {
       categoryIdentifier: "persistent",
     };
 
-    // Add Android-specific properties
-    const androidContent = notificationContent as any;
-    if (Platform.OS === "android") {
-      androidContent.channelId = NotificationManagerImpl.PERSISTENT_CHANNEL_ID;
-      androidContent.priority = "low";
-    }
+    // Build trigger with channelId for Android, null for iOS
+    const trigger =
+      Platform.OS === "android"
+        ? { channelId: NotificationManagerImpl.PERSISTENT_CHANNEL_ID }
+        : null;
 
     await Notifications.scheduleNotificationAsync({
       identifier: NotificationManagerImpl.PERSISTENT_NOTIFICATION_ID,
       content: notificationContent,
-      trigger: null,
+      trigger,
     });
   }
 
@@ -256,17 +254,16 @@ export class NotificationManagerImpl implements NotificationManager {
       categoryIdentifier: "persistent",
     };
 
-    // Add Android-specific properties
-    const androidContent = notificationContent as any;
-    if (Platform.OS === "android") {
-      androidContent.channelId = NotificationManagerImpl.PERSISTENT_CHANNEL_ID;
-      androidContent.priority = "low";
-    }
+    // Build trigger with channelId for Android, null for iOS
+    const trigger =
+      Platform.OS === "android"
+        ? { channelId: NotificationManagerImpl.PERSISTENT_CHANNEL_ID }
+        : null;
 
     await Notifications.scheduleNotificationAsync({
       identifier: NotificationManagerImpl.PERSISTENT_NOTIFICATION_ID,
       content: notificationContent,
-      trigger: null,
+      trigger,
     });
   }
 

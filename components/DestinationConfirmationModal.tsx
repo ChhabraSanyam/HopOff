@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch } from "react-redux";
 import { nominatimService } from "../services/NominatimService";
 import { saveDestination } from "../store/slices/destinationSlice";
@@ -172,7 +173,7 @@ const DestinationConfirmationModal: React.FC<
       transparent={true}
       onRequestClose={handleCancel}
     >
-      <View style={styles.overlay}>
+      <SafeAreaView style={styles.overlay}>
         <View style={styles.modalContainer}>
           <View style={styles.header}>
             <Text style={styles.title}>Confirm Destination</Text>
@@ -190,6 +191,7 @@ const DestinationConfirmationModal: React.FC<
                 value={destinationName}
                 onChangeText={setDestinationName}
                 placeholder="Enter destination name"
+                placeholderTextColor="#999"
                 maxLength={100}
                 autoCapitalize="words"
               />
@@ -271,7 +273,7 @@ const DestinationConfirmationModal: React.FC<
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 };

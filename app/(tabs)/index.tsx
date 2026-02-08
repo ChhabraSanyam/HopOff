@@ -299,7 +299,10 @@ const MapScreen: React.FC = () => {
   // Show permission request if needed
   if (locationPermission === "denied") {
     return (
-      <SafeAreaView style={styles.permissionContainer}>
+      <SafeAreaView
+        style={styles.permissionContainer}
+        edges={["top", "left", "right"]}
+      >
         <FadeInView>
           <Text style={styles.permissionTitle}>
             Location Permission Required
@@ -320,7 +323,7 @@ const MapScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <MapComponent
         currentLocation={currentLocation}
         selectedDestination={selectedDestination}

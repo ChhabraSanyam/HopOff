@@ -157,7 +157,10 @@ const SettingsScreen: React.FC = () => {
 
   if (settings.isLoading) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
+      <SafeAreaView
+        style={styles.loadingContainer}
+        edges={["top", "left", "right"]}
+      >
         <ActivityIndicator size="large" color="#007AFF" />
         <Text style={styles.loadingText}>Loading settings...</Text>
       </SafeAreaView>
@@ -165,7 +168,7 @@ const SettingsScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}

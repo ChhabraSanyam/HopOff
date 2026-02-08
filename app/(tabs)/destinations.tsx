@@ -208,7 +208,10 @@ const SavedDestinationsScreen: React.FC = () => {
 
   if (isLoading && destinations.length === 0) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
+      <SafeAreaView
+        style={styles.loadingContainer}
+        edges={["top", "left", "right"]}
+      >
         <ActivityIndicator size="large" color="#007AFF" />
         <Text style={styles.loadingText}>Loading destinations...</Text>
       </SafeAreaView>
@@ -216,12 +219,13 @@ const SavedDestinationsScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <View style={styles.header}>
         <Text style={styles.title}>Saved Destinations</Text>
         <TextInput
           style={styles.searchInput}
           placeholder="Search favourites..."
+          placeholderTextColor="#999"
           value={searchQuery}
           onChangeText={setSearchQuery}
           clearButtonMode="while-editing"

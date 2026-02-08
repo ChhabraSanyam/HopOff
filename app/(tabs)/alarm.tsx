@@ -166,7 +166,7 @@ export default function AlarmScreen() {
 
   if (!hasActiveAlarms) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
         <View style={styles.noAlarmContainer}>
           <Ionicons name="alarm-outline" size={64} color="#ccc" />
           <Text style={styles.noAlarmTitle}>No Active Alarms</Text>
@@ -179,7 +179,7 @@ export default function AlarmScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
