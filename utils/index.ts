@@ -9,12 +9,18 @@ import {
 } from "../types";
 
 /**
- * Calculate distance between two coordinates using Haversine formula
+ * Calculate distance between two coordinates using Haversine formula.
+ * Validates coordinates before calculating.
  * @param from Starting coordinate
  * @param to Ending coordinate
  * @returns Distance in meters
+ * @throws Error if coordinates are invalid
  */
 export function calculateDistance(from: Coordinate, to: Coordinate): number {
+  if (!isValidCoordinate(from) || !isValidCoordinate(to)) {
+    throw new Error("Invalid coordinates provided for distance calculation");
+  }
+
   const R = 6371e3; // Earth's radius in meters
   const φ1 = (from.latitude * Math.PI) / 180;
   const φ2 = (to.latitude * Math.PI) / 180;

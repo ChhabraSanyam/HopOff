@@ -21,7 +21,6 @@ export interface LocationManager {
   getCurrentLocation(): Promise<Coordinate>;
   startForegroundLocationUpdates(): void;
   stopForegroundLocationUpdates(): void;
-  calculateDistance(from: Coordinate, to: Coordinate): number;
   requestLocationPermissions(): Promise<boolean>;
   getLocationPermissionStatus(): Promise<Location.PermissionStatus>;
   setGeofenceEventHandler(handler: GeofenceEventHandler): void;
@@ -182,31 +181,6 @@ export class LocationManagerImpl implements LocationManager {
         error instanceof Error ? error : new Error(String(error)),
       );
     }
-  }
-
-  /**
-   * Calculate distance between two coordinates using Haversine formula
-   */
-  calculateDistance(from: Coordinate, to: Coordinate): number {
-    if (!this.isValidCoordinate(from) || !this.isValidCoordinate(to)) {
-      throw new LocationManagerError(
-        LocationError.INVALID_COORDINATES,
-        "Invalid coordinates provided for distance calculation",
-      );
-    }
-
-    const R = 6371e3; // Earth's radius in meters
-    const φ1 = (from.latitude * Math.PI) / 180;
-    const φ2 = (to.latitude * Math.PI) / 180;
-    const Δφ = ((to.latitude - from.latitude) * Math.PI) / 180;
-    const Δλ = ((to.longitude - from.longitude) * Math.PI) / 180;
-
-    const a =
-      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return R * c;
   }
 
   /**

@@ -3,8 +3,6 @@ import { configureStore } from "@reduxjs/toolkit";
 import { setupListeners } from "@reduxjs/toolkit/query";
 import { apiSlice } from "./api/apiSlice";
 import alarmSlice from "./slices/alarmSlice";
-import batterySlice from "./slices/batterySlice";
-import connectivitySlice from "./slices/connectivitySlice";
 import destinationSlice from "./slices/destinationSlice";
 import locationSlice from "./slices/locationSlice";
 import settingsSlice from "./slices/settingsSlice";
@@ -17,8 +15,6 @@ export const store = configureStore({
     destinations: destinationSlice,
     settings: settingsSlice,
     ui: uiSlice,
-    connectivity: connectivitySlice,
-    battery: batterySlice,
     api: apiSlice.reducer,
   },
   middleware: (getDefaultMiddleware) =>
