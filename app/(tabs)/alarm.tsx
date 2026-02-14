@@ -1,6 +1,6 @@
 // Alarm management screen for active alarm monitoring
 import { Ionicons } from "@expo/vector-icons";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -13,8 +13,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AlarmStatusCard from "../../components/AlarmStatusCard";
-import { locationManager } from "../../services/LocationManager";
 import { notificationManager } from "../../services/NotificationManager";
+import { calculateDistance } from "../../utils";
 import {
   useActiveAlarmCount,
   useActiveAlarms,
@@ -37,12 +37,19 @@ export default function AlarmScreen() {
 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Fetch location once on mount for initial UI state.
+  // After that, the BackgroundLocationTask pushes updates to Redux
+  // on every location tick, keeping the UI in sync with notifications.
+  useEffect(() => {
+    dispatch(getCurrentLocation());
+  }, [dispatch]);
+
   // Calculate distance for a specific alarm
   const calculateDistanceForAlarm = useCallback(
     (alarm: Alarm): number | null => {
       if (!currentLocation) return null;
       try {
-        return locationManager.calculateDistance(
+        return calculateDistance(
           currentLocation,
           alarm.destination.coordinate,
         );

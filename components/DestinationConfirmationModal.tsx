@@ -26,11 +26,13 @@ interface DestinationConfirmationModalProps {
   coordinate: Coordinate | null;
   onConfirm: (destination: Destination) => void;
   onCancel: () => void;
+  initialName?: string;
+  initialAddress?: string;
 }
 
 const DestinationConfirmationModal: React.FC<
   DestinationConfirmationModalProps
-> = ({ visible, coordinate, onConfirm, onCancel }) => {
+> = ({ visible, coordinate, onConfirm, onCancel, initialName, initialAddress }) => {
   const dispatch = useDispatch();
   const [destinationName, setDestinationName] = useState("");
   const [address, setAddress] = useState("");
@@ -42,12 +44,19 @@ const DestinationConfirmationModal: React.FC<
   // Reset state when modal opens/closes
   useEffect(() => {
     if (visible && coordinate) {
-      setDestinationName("Selected Location");
-      setAddress(formatCoordinate(coordinate));
+      // Use provided initial values or defaults
+      setDestinationName(initialName || "Selected Location");
+      setAddress(initialAddress || formatCoordinate(coordinate));
       setAddToFavourites(false);
       setValidationErrors([]);
-      // Load address from coordinate using reverse geocoding
-      loadAddressFromCoordinate(coordinate);
+      
+      // Only load address from coordinate if not already provided
+      if (!initialAddress) {
+        loadAddressFromCoordinate(coordinate);
+      } else {
+        // Address already provided, no need to reverse geocode
+        setIsLoadingAddress(false);
+      }
     } else if (!visible) {
       // Reset state when modal closes
       setDestinationName("");
@@ -56,7 +65,7 @@ const DestinationConfirmationModal: React.FC<
       setValidationErrors([]);
       setIsLoadingAddress(false);
     }
-  }, [visible, coordinate]);
+  }, [visible, coordinate, initialName, initialAddress]);
 
   /**
    * Load address from coordinate using reverse geocoding

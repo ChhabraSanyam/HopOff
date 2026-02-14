@@ -4,30 +4,16 @@ import { useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Provider } from "react-redux";
 import { ToastProvider } from "../contexts/ToastContext";
-import { useAlarmMonitoring } from "../hooks/useAlarmMonitoring";
 // Import GeofencingService early to ensure TaskManager.defineTask is called
 // This MUST be imported before any geofencing operations can occur
 import "../services/GeofencingService";
+// Import BackgroundLocationTask early to register the background location task
+// This MUST be imported at module level so the task is defined before any events fire
+import "../services/BackgroundLocationTask";
 import { store } from "../store";
 import { useAppDispatch } from "../store/hooks";
 import { initializeAlarmFromStorage } from "../store/slices/alarmSlice";
 import { loadSettings } from "../store/slices/settingsSlice";
-
-/**
- * Component that handles alarm monitoring at the app level.
- * This ensures monitoring starts automatically when the app opens
- * if there's an active alarm.
- */
-function AlarmMonitoringProvider({ children }: { children: React.ReactNode }) {
-  // Start monitoring if there's an active alarm
-  // This hook handles starting/stopping automatically based on activeAlarm
-  useAlarmMonitoring({
-    updateInterval: 10000,
-    enablePersistentNotification: true,
-  });
-
-  return <>{children}</>;
-}
 
 /**
  * Component that initializes the app state.
@@ -48,7 +34,7 @@ function AppInitializer({ children }: { children: React.ReactNode }) {
     initializeApp();
   }, [dispatch]);
 
-  return <AlarmMonitoringProvider>{children}</AlarmMonitoringProvider>;
+  return <>{children}</>;
 }
 
 export default function RootLayout() {
