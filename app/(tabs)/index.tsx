@@ -44,6 +44,8 @@ const MapScreen: React.FC = () => {
   const [pendingCoordinate, setPendingCoordinate] = useState<Coordinate | null>(
     null,
   );
+  const [pendingName, setPendingName] = useState<string | undefined>(undefined);
+  const [pendingAddress, setPendingAddress] = useState<string | undefined>(undefined);
   const [showQuickSelector, setShowQuickSelector] = useState(false);
   const [showAddressSearch, setShowAddressSearch] = useState(false);
   const [shouldFitMarkers, setShouldFitMarkers] = useState(false);
@@ -120,7 +122,10 @@ const MapScreen: React.FC = () => {
     }
 
     // Set pending coordinate and show confirmation modal
+    // (no name/address available when tapping map, so reverse geocoding will be performed)
     setPendingCoordinate(coord);
+    setPendingName(undefined);
+    setPendingAddress(undefined);
     setShowConfirmationModal(true);
   };
 
@@ -147,6 +152,8 @@ const MapScreen: React.FC = () => {
       // Close modal
       setShowConfirmationModal(false);
       setPendingCoordinate(null);
+      setPendingName(undefined);
+      setPendingAddress(undefined);
 
       // Trigger map to fit both markers
       setShouldFitMarkers(true);
@@ -214,6 +221,8 @@ const MapScreen: React.FC = () => {
   const handleDestinationCancel = () => {
     setShowConfirmationModal(false);
     setPendingCoordinate(null);
+    setPendingName(undefined);
+    setPendingAddress(undefined);
   };
 
   const handleQuickSelectDestination = async (destination: Destination) => {
@@ -291,8 +300,10 @@ const MapScreen: React.FC = () => {
     // Close the search modal
     setShowAddressSearch(false);
 
-    // Set the destination coordinate and show confirmation modal
+    // Set the destination info (including name and address from search) and show confirmation modal
     setPendingCoordinate(destination.coordinate);
+    setPendingName(destination.name);
+    setPendingAddress(destination.address);
     setShowConfirmationModal(true);
   };
 
@@ -398,6 +409,8 @@ const MapScreen: React.FC = () => {
       <DestinationConfirmationModal
         visible={showConfirmationModal}
         coordinate={pendingCoordinate}
+        initialName={pendingName}
+        initialAddress={pendingAddress}
         onConfirm={handleDestinationConfirm}
         onCancel={handleDestinationCancel}
       />

@@ -1,16 +1,20 @@
 // Address search component with OpenStreetMap Nominatim integration
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    FlatList,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
-} from 'react-native';
-import { NominatimError, nominatimService, NominatimServiceError } from '../services/NominatimService';
-import { AddressSearchResult, SearchHistoryItem } from '../types';
+  ActivityIndicator,
+  FlatList,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import {
+  NominatimError,
+  nominatimService,
+  NominatimServiceError,
+} from "../services/NominatimService";
+import { AddressSearchResult, SearchHistoryItem } from "../types";
 
 interface AddressSearchComponentProps {
   onSelectResult: (result: AddressSearchResult) => void;
@@ -32,25 +36,25 @@ interface SearchState {
 const AddressSearchComponent: React.FC<AddressSearchComponentProps> = ({
   onSelectResult,
   onClose,
-  placeholder = 'Search for an address...',
+  placeholder = "Search for an address...",
   searchHistory = [],
   onAddToHistory,
   showHistory = true,
 }) => {
   const [searchState, setSearchState] = useState<SearchState>({
-    query: '',
+    query: "",
     results: [],
     isLoading: false,
     error: null,
     showResults: false,
   });
 
-  const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Debounced search function
   const performSearch = useCallback(async (query: string) => {
     if (query.trim().length < 2) {
-      setSearchState(prev => ({
+      setSearchState((prev) => ({
         ...prev,
         results: [],
         showResults: false,
@@ -59,7 +63,7 @@ const AddressSearchComponent: React.FC<AddressSearchComponentProps> = ({
       return;
     }
 
-    setSearchState(prev => ({
+    setSearchState((prev) => ({
       ...prev,
       isLoading: true,
       error: null,
@@ -68,36 +72,36 @@ const AddressSearchComponent: React.FC<AddressSearchComponentProps> = ({
 
     try {
       const results = await nominatimService.searchAddress(query.trim(), 8);
-      
-      setSearchState(prev => ({
+
+      setSearchState((prev) => ({
         ...prev,
         results,
         isLoading: false,
         error: null,
       }));
     } catch (error) {
-      let errorMessage = 'Search failed. Please try again.';
-      
+      let errorMessage = "Search failed. Please try again.";
+
       if (error instanceof NominatimServiceError) {
         switch (error.code) {
           case NominatimError.NO_RESULTS:
             errorMessage = `No results found for "${query.trim()}"`;
             break;
           case NominatimError.NETWORK_ERROR:
-            errorMessage = 'Network error. Please check your connection.';
+            errorMessage = "Network error. Please check your connection.";
             break;
           case NominatimError.RATE_LIMITED:
-            errorMessage = 'Too many searches. Please wait a moment.';
+            errorMessage = "Too many searches. Please wait a moment.";
             break;
           case NominatimError.SERVICE_UNAVAILABLE:
-            errorMessage = 'Search service temporarily unavailable.';
+            errorMessage = "Search service temporarily unavailable.";
             break;
           default:
             errorMessage = error.message;
         }
       }
 
-      setSearchState(prev => ({
+      setSearchState((prev) => ({
         ...prev,
         results: [],
         isLoading: false,
@@ -107,30 +111,31 @@ const AddressSearchComponent: React.FC<AddressSearchComponentProps> = ({
   }, []);
 
   // Handle search input changes with debouncing
-  const handleSearchChange = useCallback((text: string) => {
-    setSearchState(prev => ({ ...prev, query: text }));
+  const handleSearchChange = useCallback(
+    (text: string) => {
+      setSearchState((prev) => ({ ...prev, query: text }));
 
-    // Clear existing timer
-    if (debounceTimer) {
-      clearTimeout(debounceTimer);
-    }
+      // Clear existing timer
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
 
-    // Set new timer for debounced search
-    const timer = setTimeout(() => {
-      performSearch(text);
-    }, 500); // 500ms debounce
-
-    setDebounceTimer(timer as any);
-  }, [debounceTimer, performSearch]);
+      // Set new timer for debounced search
+      debounceTimerRef.current = setTimeout(() => {
+        performSearch(text);
+      }, 500); // 500ms debounce
+    },
+    [performSearch],
+  );
 
   // Cleanup timer on unmount
   useEffect(() => {
     return () => {
-      if (debounceTimer) {
-        clearTimeout(debounceTimer);
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
       }
     };
-  }, [debounceTimer]);
+  }, []);
 
   const handleSelectResult = (result: AddressSearchResult) => {
     // Add to search history if callback provided
@@ -140,7 +145,7 @@ const AddressSearchComponent: React.FC<AddressSearchComponentProps> = ({
 
     // Clear search state
     setSearchState({
-      query: '',
+      query: "",
       results: [],
       isLoading: false,
       error: null,
@@ -155,14 +160,14 @@ const AddressSearchComponent: React.FC<AddressSearchComponentProps> = ({
     // Convert history item to AddressSearchResult format
     const result: AddressSearchResult = {
       id: `history_${historyItem.id}`,
-      displayName: historyItem.result.display_name.split(',')[0].trim(),
+      displayName: historyItem.result.display_name.split(",")[0].trim(),
       address: historyItem.result.display_name,
       coordinate: {
         latitude: parseFloat(historyItem.result.lat),
         longitude: parseFloat(historyItem.result.lon),
       },
       importance: historyItem.result.importance || 0,
-      type: historyItem.result.type || 'unknown',
+      type: historyItem.result.type || "unknown",
       boundingBox: {
         south: parseFloat(historyItem.result.boundingbox[0]),
         north: parseFloat(historyItem.result.boundingbox[1]),
@@ -176,7 +181,7 @@ const AddressSearchComponent: React.FC<AddressSearchComponentProps> = ({
 
   const handleClearSearch = () => {
     setSearchState({
-      query: '',
+      query: "",
       results: [],
       isLoading: false,
       error: null,
@@ -222,7 +227,11 @@ const AddressSearchComponent: React.FC<AddressSearchComponentProps> = ({
     </TouchableOpacity>
   );
 
-  const showHistorySection = showHistory && searchHistory.length > 0 && !searchState.showResults && !searchState.query;
+  const showHistorySection =
+    showHistory &&
+    searchHistory.length > 0 &&
+    !searchState.showResults &&
+    !searchState.query;
 
   return (
     <View style={styles.container}>
@@ -247,7 +256,10 @@ const AddressSearchComponent: React.FC<AddressSearchComponentProps> = ({
           onSubmitEditing={() => performSearch(searchState.query)}
         />
         {searchState.query.length > 0 && (
-          <TouchableOpacity style={styles.clearButton} onPress={handleClearSearch}>
+          <TouchableOpacity
+            style={styles.clearButton}
+            onPress={handleClearSearch}
+          >
             <Text style={styles.clearButtonText}>✕</Text>
           </TouchableOpacity>
         )}
@@ -303,17 +315,17 @@ const AddressSearchComponent: React.FC<AddressSearchComponentProps> = ({
       )}
 
       {/* Empty State */}
-      {!searchState.isLoading && 
-       !searchState.error && 
-       !showHistorySection && 
-       searchState.results.length === 0 && 
-       searchState.query.length === 0 && (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>
-            Start typing to search for addresses
-          </Text>
-        </View>
-      )}
+      {!searchState.isLoading &&
+        !searchState.error &&
+        !showHistorySection &&
+        searchState.results.length === 0 &&
+        searchState.query.length === 0 && (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>
+              Start typing to search for addresses
+            </Text>
+          </View>
+        )}
     </View>
   );
 };
@@ -321,43 +333,43 @@ const AddressSearchComponent: React.FC<AddressSearchComponentProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'white',
+    backgroundColor: "white",
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: "#e0e0e0",
   },
   title: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
   },
   closeButton: {
     padding: 8,
   },
   closeButtonText: {
     fontSize: 18,
-    color: '#666',
+    color: "#666",
   },
   searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     margin: 16,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: '#333',
+    color: "#333",
     paddingVertical: 4,
   },
   clearButton: {
@@ -366,43 +378,43 @@ const styles = StyleSheet.create({
   },
   clearButtonText: {
     fontSize: 16,
-    color: '#999',
+    color: "#999",
   },
   loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     padding: 16,
   },
   loadingText: {
     marginLeft: 8,
     fontSize: 14,
-    color: '#666',
+    color: "#666",
   },
   errorContainer: {
     padding: 16,
-    backgroundColor: '#fff5f5',
+    backgroundColor: "#fff5f5",
     margin: 16,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#fed7d7',
+    borderColor: "#fed7d7",
   },
   errorText: {
     fontSize: 14,
-    color: '#e53e3e',
+    color: "#e53e3e",
     marginBottom: 8,
   },
   retryButton: {
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: '#e53e3e',
+    backgroundColor: "#e53e3e",
     borderRadius: 4,
   },
   retryButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   resultsContainer: {
     flex: 1,
@@ -410,8 +422,8 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
     marginBottom: 8,
   },
   resultsList: {
@@ -421,27 +433,27 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 4,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: "#f0f0f0",
   },
   resultContent: {
     flex: 1,
   },
   resultTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
     marginBottom: 4,
   },
   resultAddress: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
     marginBottom: 4,
     lineHeight: 18,
   },
   resultType: {
     fontSize: 12,
-    color: '#999',
-    textTransform: 'capitalize',
+    color: "#999",
+    textTransform: "capitalize",
   },
   historyContainer: {
     flex: 1,
@@ -451,41 +463,41 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   historyItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 12,
     paddingHorizontal: 4,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: "#f0f0f0",
   },
   historyContent: {
     flex: 1,
   },
   historyQuery: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
     marginBottom: 2,
   },
   historyAddress: {
     fontSize: 12,
-    color: '#666',
+    color: "#666",
   },
   historyTime: {
     fontSize: 11,
-    color: '#999',
+    color: "#999",
     marginLeft: 8,
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 32,
   },
   emptyText: {
     fontSize: 16,
-    color: '#999',
-    textAlign: 'center',
+    color: "#999",
+    textAlign: "center",
   },
 });
 
