@@ -14,7 +14,6 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import AlarmStatusCard from "../../components/AlarmStatusCard";
 import { notificationManager } from "../../services/NotificationManager";
-import { calculateDistance } from "../../utils";
 import {
   useActiveAlarmCount,
   useActiveAlarms,
@@ -26,6 +25,7 @@ import {
 import { cancelAlarm, cancelAllAlarms } from "../../store/slices/alarmSlice";
 import { getCurrentLocation } from "../../store/slices/locationSlice";
 import { Alarm } from "../../types";
+import { calculateDistance } from "../../utils";
 
 export default function AlarmScreen() {
   const dispatch = useAppDispatch();
@@ -49,10 +49,7 @@ export default function AlarmScreen() {
     (alarm: Alarm): number | null => {
       if (!currentLocation) return null;
       try {
-        return calculateDistance(
-          currentLocation,
-          alarm.destination.coordinate,
-        );
+        return calculateDistance(currentLocation, alarm.destination.coordinate);
       } catch {
         return null;
       }

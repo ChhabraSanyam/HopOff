@@ -15,7 +15,6 @@ import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
 import * as TaskManager from "expo-task-manager";
 import { AppState } from "react-native";
-import { store } from "../store";
 import { setCurrentLocation } from "../store/slices/locationSlice";
 import { Alarm } from "../types";
 import { calculateDistance } from "../utils";
@@ -69,6 +68,8 @@ async function performAlarmCheck(currentCoord: {
   // so we don't cause needless React re-renders while backgrounded.
   if (AppState.currentState === "active") {
     try {
+      // Import store lazily to avoid circular dependency
+      const { store } = await import("../store");
       store.dispatch(setCurrentLocation(currentCoord));
     } catch {
       // Store may not be ready yet during early boot — not critical

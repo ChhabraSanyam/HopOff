@@ -1,12 +1,12 @@
 // UI state slice for Redux store
 import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
-import * as Notifications from "expo-notifications";
 import { Destination, UIState } from "../../types";
 
 // Async thunk for requesting notification permission
 export const requestNotificationPermission = createAsyncThunk(
   "ui/requestNotificationPermission",
   async () => {
+    const Notifications = await import("expo-notifications");
     const { status } = await Notifications.requestPermissionsAsync();
     return status;
   },
