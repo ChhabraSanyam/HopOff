@@ -83,7 +83,9 @@ export class AlarmManagerImpl implements AlarmManager {
         // Re-register geofence event handlers for all alarms with geofences
         this.setupGeofenceEventHandlers();
 
-        console.log(`Restored ${this.activeAlarms.size} alarms from storage`);
+        if (__DEV__ && this.activeAlarms.size > 0) {
+          console.log(`Restored ${this.activeAlarms.size} alarms from storage`);
+        }
 
         // Ensure background location task is running for restored alarms
         if (this.activeAlarms.size > 0) {
@@ -113,9 +115,11 @@ export class AlarmManagerImpl implements AlarmManager {
         (a) => a.geofenceId === event.geofenceId,
       );
       if (alarm) {
-        console.log(
-          `Geofence event matched alarm: ${alarm.id} (${alarm.destination.name})`,
-        );
+        if (__DEV__) {
+          console.log(
+            `Geofence event matched alarm: ${alarm.id} (${alarm.destination.name})`,
+          );
+        }
         this.handleAlarmTrigger(alarm);
       } else {
         console.warn(`No alarm found for geofence: ${event.geofenceId}`);
@@ -125,7 +129,7 @@ export class AlarmManagerImpl implements AlarmManager {
     const alarmsWithGeofences = Array.from(this.activeAlarms.values()).filter(
       (alarm) => alarm.geofenceId,
     );
-    if (alarmsWithGeofences.length > 0) {
+    if (__DEV__ && alarmsWithGeofences.length > 0) {
       console.log(
         `Restored geofence event handlers for ${alarmsWithGeofences.length} alarms`,
       );
@@ -234,7 +238,9 @@ export class AlarmManagerImpl implements AlarmManager {
 
       const alarm = this.activeAlarms.get(alarmId);
       if (!alarm) {
-        console.log(`Alarm ${alarmId} already cancelled or doesn't exist`);
+        if (__DEV__) {
+          console.log(`Alarm ${alarmId} already cancelled or doesn't exist`);
+        }
         return;
       }
 
@@ -307,9 +313,11 @@ export class AlarmManagerImpl implements AlarmManager {
       // Show alarm notification with sound and haptic feedback
       await notificationManager.showAlarmNotification(alarm);
 
-      console.log(
-        `Alarm notification triggered for: ${alarm.destination.name}`,
-      );
+      if (__DEV__) {
+        console.log(
+          `Alarm notification triggered for: ${alarm.destination.name}`,
+        );
+      }
     } catch (error) {
       console.error("Error showing alarm notification:", error);
       // Continue to clear alarm even if notification fails
@@ -416,7 +424,9 @@ export class AlarmManagerImpl implements AlarmManager {
           await this.persistAlarms();
         }
 
-        console.log(`Geofencing setup successful for alarm: ${alarm.id}`);
+        if (__DEV__) {
+          console.log(`Geofencing setup successful for alarm: ${alarm.id}`);
+        }
       } catch (geofenceError) {
         // Geofencing is optional — BackgroundLocationTask is the primary monitor
         console.warn(
@@ -453,7 +463,9 @@ export class AlarmManagerImpl implements AlarmManager {
    */
   private async handleAlarmTrigger(alarm: Alarm): Promise<void> {
     try {
-      console.log(`Alarm triggered: ${alarm.destination.name}`);
+      if (__DEV__) {
+        console.log(`Alarm triggered: ${alarm.destination.name}`);
+      }
 
       // Trigger the alarm through the normal flow
       await this.triggerAlarm(alarm);

@@ -44,13 +44,16 @@ interface AppState {
 ## Slices Overview
 
 ### AlarmSlice
+
 Manages alarm lifecycle and state:
+
 - Active alarm tracking
 - Alarm history
 - Loading states and error handling
 - Async actions for create/cancel/trigger
 
 **Key Actions:**
+
 - `setActiveAlarm` - Set or clear active alarm
 - `createAlarm` - Async action to create new alarm
 - `cancelAlarm` - Async action to cancel alarm
@@ -58,26 +61,32 @@ Manages alarm lifecycle and state:
 - `updateAlarmSettings` - Update alarm configuration
 
 ### LocationSlice
+
 Manages location services and permissions:
+
 - Current location tracking
 - Permission status
 - Location accuracy and timestamps
 - Error handling
 
 **Key Actions:**
+
 - `setCurrentLocation` - Update current location
 - `setLocationPermission` - Update permission status
 - `requestLocationPermission` - Async permission request
 - `getCurrentLocation` - Async location fetch
 
 ### DestinationSlice
+
 Manages saved and recent destinations:
+
 - Saved destinations (favorites)
 - Recent destinations history
 - CRUD operations
 - Loading states
 
 **Key Actions:**
+
 - `addSavedDestination` - Add to saved destinations
 - `removeSavedDestination` - Remove from saved
 - `addRecentDestination` - Add to recent history
@@ -85,23 +94,29 @@ Manages saved and recent destinations:
 - `saveDestination` - Async save to storage
 
 ### SettingsSlice
+
 Manages user preferences:
+
 - Default alarm settings
 - App configuration
 - Battery optimization preferences
 
 **Key Actions:**
+
 - `updateSettings` - Update user preferences
 - `resetSettings` - Reset to defaults
 
 ### UISlice
+
 Manages UI state and navigation:
+
 - Selected destinations
 - Map region and state
 - Modal visibility
 - Active screen tracking
 
 **Key Actions:**
+
 - `setSelectedDestination` - Set map selection
 - `setMapRegion` - Update map viewport
 - `showDestinationModal` / `hideDestinationModal` - Modal control
@@ -118,11 +133,11 @@ import { setActiveAlarm } from '../store/slices/alarmSlice';
 function MyComponent() {
   const dispatch = useAppDispatch();
   const activeAlarm = useAppSelector(state => state.alarm.activeAlarm);
-  
+
   const handleSetAlarm = () => {
     dispatch(setActiveAlarm(alarm));
   };
-  
+
   return (
     <View>
       {activeAlarm && <Text>Alarm active for {activeAlarm.destination.name}</Text>}
@@ -139,7 +154,7 @@ import { useActiveAlarm, useCurrentLocation } from '../store/hooks';
 function AlarmStatus() {
   const activeAlarm = useActiveAlarm();
   const currentLocation = useCurrentLocation();
-  
+
   return (
     <View>
       {activeAlarm && (
@@ -160,7 +175,7 @@ import { createAlarm } from '../store/slices/alarmSlice';
 
 function CreateAlarmButton() {
   const dispatch = useAppDispatch();
-  
+
   const handleCreateAlarm = async () => {
     try {
       await dispatch(createAlarm({ destination, settings })).unwrap();
@@ -169,7 +184,7 @@ function CreateAlarmButton() {
       // Handle error
     }
   };
-  
+
   return <Button onPress={handleCreateAlarm} title="Create Alarm" />;
 }
 ```
@@ -180,7 +195,7 @@ The API slice is set up for future integrations:
 
 ```typescript
 // Google Places search (future implementation)
-const { data: places, isLoading } = useSearchPlacesQuery('search term');
+const { data: places, isLoading } = useSearchPlacesQuery("search term");
 
 // Delhi Metro stations (future implementation)
 const { data: stations } = useGetMetroStationsQuery();
@@ -195,6 +210,7 @@ npm test -- --testPathPatterns="store"
 ```
 
 Tests cover:
+
 - Action creators and reducers
 - State transitions
 - Error handling

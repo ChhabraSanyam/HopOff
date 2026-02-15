@@ -248,76 +248,6 @@ export function validateUserSettings(
     errors.push("Battery optimization enabled must be a boolean value");
   }
 
-  // Validate battery optimization level
-  if (settings.batteryOptimizationLevel !== undefined) {
-    const validLevels = ["auto", "conservative", "aggressive", "disabled"];
-    if (!validLevels.includes(settings.batteryOptimizationLevel)) {
-      errors.push(
-        `Battery optimization level must be one of: ${validLevels.join(", ")}`,
-      );
-    }
-  }
-
-  // Validate battery thresholds
-  if (settings.lowBatteryThreshold !== undefined) {
-    if (
-      typeof settings.lowBatteryThreshold !== "number" ||
-      isNaN(settings.lowBatteryThreshold)
-    ) {
-      errors.push("Low battery threshold must be a valid number");
-    } else if (
-      settings.lowBatteryThreshold < 0.1 ||
-      settings.lowBatteryThreshold > 0.8
-    ) {
-      errors.push(
-        "Low battery threshold must be between 0.1 (10%) and 0.8 (80%)",
-      );
-    }
-  }
-
-  if (settings.criticalBatteryThreshold !== undefined) {
-    if (
-      typeof settings.criticalBatteryThreshold !== "number" ||
-      isNaN(settings.criticalBatteryThreshold)
-    ) {
-      errors.push("Critical battery threshold must be a valid number");
-    } else if (
-      settings.criticalBatteryThreshold < 0.05 ||
-      settings.criticalBatteryThreshold > 0.3
-    ) {
-      errors.push(
-        "Critical battery threshold must be between 0.05 (5%) and 0.3 (30%)",
-      );
-    }
-  }
-
-  // Validate threshold relationship
-  if (
-    settings.lowBatteryThreshold !== undefined &&
-    settings.criticalBatteryThreshold !== undefined &&
-    settings.criticalBatteryThreshold >= settings.lowBatteryThreshold
-  ) {
-    errors.push(
-      "Critical battery threshold must be lower than low battery threshold",
-    );
-  }
-
-  // Validate adaptive location accuracy
-  if (
-    settings.adaptiveLocationAccuracy !== undefined &&
-    typeof settings.adaptiveLocationAccuracy !== "boolean"
-  ) {
-    errors.push("Adaptive location accuracy must be a boolean value");
-  }
-
-  // Validate background processing optimization
-  if (
-    settings.backgroundProcessingOptimization !== undefined &&
-    typeof settings.backgroundProcessingOptimization !== "boolean"
-  ) {
-    errors.push("Background processing optimization must be a boolean value");
-  }
-
   return {
     isValid: errors.length === 0,
     errors,
@@ -465,15 +395,10 @@ export function createDefaultAlarmSettings(): AlarmSettings {
  */
 export function createDefaultUserSettings(): UserSettings {
   return {
-    defaultTriggerRadius: 200,
+    defaultTriggerRadius: 500,
     vibrationEnabled: true,
     persistentNotificationEnabled: true,
     batteryOptimizationEnabled: true,
-    batteryOptimizationLevel: "auto",
-    lowBatteryThreshold: 0.3,
-    criticalBatteryThreshold: 0.15,
-    adaptiveLocationAccuracy: true,
-    backgroundProcessingOptimization: true,
   };
 }
 

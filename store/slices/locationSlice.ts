@@ -1,13 +1,13 @@
 // Location state slice for Redux store
-import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { Coordinate, LocationState } from '../../types';
+import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { Coordinate, LocationState } from "../../types";
 
 // Import LocationManager service
-import { locationManager } from '../../services/LocationManager';
+import { locationManager } from "../../services/LocationManager";
 
 const initialState: LocationState = {
   currentLocation: null,
-  locationPermission: 'undetermined',
+  locationPermission: "undetermined",
   isTracking: false,
   lastUpdated: null,
   accuracy: null,
@@ -16,23 +16,23 @@ const initialState: LocationState = {
 
 // Async thunks for location operations
 export const requestLocationPermission = createAsyncThunk(
-  'location/requestPermission',
+  "location/requestPermission",
   async () => {
     const hasPermission = await locationManager.requestLocationPermissions();
-    return hasPermission ? 'granted' : 'denied';
-  }
+    return hasPermission ? "granted" : "denied";
+  },
 );
 
 export const getCurrentLocation = createAsyncThunk(
-  'location/getCurrent',
+  "location/getCurrent",
   async () => {
     const location = await locationManager.getCurrentLocation();
     return { location, accuracy: 10, timestamp: new Date().toISOString() };
-  }
+  },
 );
 
 const locationSlice = createSlice({
-  name: 'location',
+  name: "location",
   initialState,
   reducers: {
     // Synchronous actions
@@ -40,17 +40,23 @@ const locationSlice = createSlice({
       state.currentLocation = action.payload;
       state.lastUpdated = new Date().toISOString();
     },
-    setLocationPermission: (state, action: PayloadAction<'granted' | 'denied' | 'undetermined'>) => {
+    setLocationPermission: (
+      state,
+      action: PayloadAction<"granted" | "denied" | "undetermined">,
+    ) => {
       state.locationPermission = action.payload;
     },
     setTracking: (state, action: PayloadAction<boolean>) => {
       state.isTracking = action.payload;
     },
-    updateLocationWithAccuracy: (state, action: PayloadAction<{
-      location: Coordinate;
-      accuracy: number;
-      timestamp: string;
-    }>) => {
+    updateLocationWithAccuracy: (
+      state,
+      action: PayloadAction<{
+        location: Coordinate;
+        accuracy: number;
+        timestamp: string;
+      }>,
+    ) => {
       state.currentLocation = action.payload.location;
       state.accuracy = action.payload.accuracy;
       state.lastUpdated = action.payload.timestamp;
@@ -67,7 +73,8 @@ const locationSlice = createSlice({
         state.error = null;
       })
       .addCase(requestLocationPermission.rejected, (state, action) => {
-        state.error = action.error.message || 'Failed to request location permission';
+        state.error =
+          action.error.message || "Failed to request location permission";
       })
       // Get current location
       .addCase(getCurrentLocation.fulfilled, (state, action) => {
@@ -77,17 +84,17 @@ const locationSlice = createSlice({
         state.error = null;
       })
       .addCase(getCurrentLocation.rejected, (state, action) => {
-        state.error = action.error.message || 'Failed to get current location';
+        state.error = action.error.message || "Failed to get current location";
       });
   },
 });
 
-export const { 
-  setCurrentLocation, 
-  setLocationPermission, 
+export const {
+  setCurrentLocation,
+  setLocationPermission,
   setTracking,
   updateLocationWithAccuracy,
-  clearLocationError 
+  clearLocationError,
 } = locationSlice.actions;
 
 export default locationSlice.reducer;

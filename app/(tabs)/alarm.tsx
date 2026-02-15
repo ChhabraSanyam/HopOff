@@ -154,10 +154,10 @@ export default function AlarmScreen() {
     return `${Math.round(distanceInMeters)} m`;
   };
 
-  // Format time estimate (rough calculation based on walking speed)
+  // Format time estimate (rough calculation based on metro/public transport speed)
   const formatTimeEstimate = (distanceInMeters: number): string => {
-    const walkingSpeedMps = 1.4; // Average walking speed: 1.4 m/s (5 km/h)
-    const timeInSeconds = distanceInMeters / walkingSpeedMps;
+    const metroSpeedMps = 11; // Average metro speed: 40 km/h including stops
+    const timeInSeconds = distanceInMeters / metroSpeedMps;
 
     if (timeInSeconds < 60) {
       return `${Math.round(timeInSeconds)} sec`;
@@ -238,7 +238,7 @@ export default function AlarmScreen() {
                         {formatDistance(distance)}
                       </Text>
                       <Text style={styles.distanceSubtext}>
-                        ~{formatTimeEstimate(distance)} walking
+                        ~{formatTimeEstimate(distance)} by metro
                       </Text>
                     </>
                   ) : (

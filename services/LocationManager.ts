@@ -19,8 +19,6 @@ export interface LocationManager {
   setupGeofence(destination: Coordinate, radius: number): Promise<string>;
   removeGeofence(geofenceId: string): Promise<void>;
   getCurrentLocation(): Promise<Coordinate>;
-  startForegroundLocationUpdates(): void;
-  stopForegroundLocationUpdates(): void;
   requestLocationPermissions(): Promise<boolean>;
   getLocationPermissionStatus(): Promise<Location.PermissionStatus>;
   setGeofenceEventHandler(handler: GeofenceEventHandler): void;
@@ -56,9 +54,6 @@ export class LocationManagerError extends Error {
 }
 
 export class LocationManagerImpl implements LocationManager {
-  private locationSubscription: Location.LocationSubscription | null = null;
-  private isTrackingLocation = false;
-
   /**
    * Request location permissions
    */
@@ -184,36 +179,6 @@ export class LocationManagerImpl implements LocationManager {
   }
 
   /**
-   * Start foreground location updates
-   */
-  startForegroundLocationUpdates(): void {
-    if (this.isTrackingLocation) {
-      console.warn("Location updates already started");
-      return;
-    }
-
-    this.isTrackingLocation = true;
-    console.log("Starting foreground location updates");
-  }
-
-  /**
-   * Stop foreground location updates
-   */
-  stopForegroundLocationUpdates(): void {
-    if (!this.isTrackingLocation) {
-      return;
-    }
-
-    if (this.locationSubscription) {
-      this.locationSubscription.remove();
-      this.locationSubscription = null;
-    }
-
-    this.isTrackingLocation = false;
-    console.log("Stopped foreground location updates");
-  }
-
-  /**
    * Setup a geofence at the destination
    */
   async setupGeofence(
@@ -244,9 +209,7 @@ export class LocationManagerImpl implements LocationManager {
       if (!success) {
         // Geofence might have already been removed or never existed
         // This is not a critical error, just log it
-        console.warn(
-          `Geofence with ID ${geofenceId} was not found`,
-        );
+        console.warn(`Geofence with ID ${geofenceId} was not found`);
       }
     } catch (error) {
       // Log the error but don't throw - the geofence state has been cleaned up
@@ -288,7 +251,6 @@ export class LocationManagerImpl implements LocationManager {
   async cleanup(): Promise<void> {
     try {
       await geofencingService.cleanup();
-      this.stopForegroundLocationUpdates();
     } catch (error) {
       console.error("Error during cleanup:", error);
     }

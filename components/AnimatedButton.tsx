@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef } from "react";
 import {
   TouchableOpacity,
   Text,
@@ -7,7 +7,7 @@ import {
   ViewStyle,
   TextStyle,
   GestureResponderEvent,
-} from 'react-native';
+} from "react-native";
 
 interface AnimatedButtonProps {
   title: string;
@@ -16,8 +16,8 @@ interface AnimatedButtonProps {
   textStyle?: TextStyle;
   disabled?: boolean;
   loading?: boolean;
-  variant?: 'primary' | 'secondary' | 'danger';
-  size?: 'small' | 'medium' | 'large';
+  variant?: "primary" | "secondary" | "danger";
+  size?: "small" | "medium" | "large";
 }
 
 const AnimatedButton: React.FC<AnimatedButtonProps> = ({
@@ -27,8 +27,8 @@ const AnimatedButton: React.FC<AnimatedButtonProps> = ({
   textStyle,
   disabled = false,
   loading = false,
-  variant = 'primary',
-  size = 'medium',
+  variant = "primary",
+  size = "medium",
 }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const opacityAnim = useRef(new Animated.Value(1)).current;
@@ -63,15 +63,15 @@ const AnimatedButton: React.FC<AnimatedButtonProps> = ({
 
   const getButtonStyle = () => {
     const baseStyle: ViewStyle[] = [styles.button, styles[size]];
-    
+
     switch (variant) {
-      case 'primary':
+      case "primary":
         baseStyle.push(styles.primary);
         break;
-      case 'secondary':
+      case "secondary":
         baseStyle.push(styles.secondary);
         break;
-      case 'danger':
+      case "danger":
         baseStyle.push(styles.danger);
         break;
     }
@@ -84,16 +84,19 @@ const AnimatedButton: React.FC<AnimatedButtonProps> = ({
   };
 
   const getTextStyle = () => {
-    const baseStyle: TextStyle[] = [styles.text, styles[`${size}Text` as keyof typeof styles] as TextStyle];
-    
+    const baseStyle: TextStyle[] = [
+      styles.text,
+      styles[`${size}Text` as keyof typeof styles] as TextStyle,
+    ];
+
     switch (variant) {
-      case 'primary':
+      case "primary":
         baseStyle.push(styles.primaryText);
         break;
-      case 'secondary':
+      case "secondary":
         baseStyle.push(styles.secondaryText);
         break;
-      case 'danger':
+      case "danger":
         baseStyle.push(styles.dangerText);
         break;
     }
@@ -124,7 +127,7 @@ const AnimatedButton: React.FC<AnimatedButtonProps> = ({
         ]}
       >
         <Text style={[getTextStyle(), textStyle]}>
-          {loading ? 'Loading...' : title}
+          {loading ? "Loading..." : title}
         </Text>
       </Animated.View>
     </TouchableOpacity>
@@ -134,8 +137,8 @@ const AnimatedButton: React.FC<AnimatedButtonProps> = ({
 const styles = StyleSheet.create({
   button: {
     borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   small: {
     paddingHorizontal: 12,
@@ -150,22 +153,22 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   primary: {
-    backgroundColor: '#007AFF',
+    backgroundColor: "#007AFF",
   },
   secondary: {
-    backgroundColor: '#F2F2F7',
+    backgroundColor: "#F2F2F7",
     borderWidth: 1,
-    borderColor: '#C7C7CC',
+    borderColor: "#C7C7CC",
   },
   danger: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: "#FF3B30",
   },
   disabled: {
-    backgroundColor: '#E5E5E7',
-    borderColor: '#E5E5E7',
+    backgroundColor: "#E5E5E7",
+    borderColor: "#E5E5E7",
   },
   text: {
-    fontWeight: '600',
+    fontWeight: "600",
   },
   smallText: {
     fontSize: 14,
@@ -177,16 +180,16 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   primaryText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
   },
   secondaryText: {
-    color: '#007AFF',
+    color: "#007AFF",
   },
   dangerText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
   },
   disabledText: {
-    color: '#8E8E93',
+    color: "#8E8E93",
   },
 });
 

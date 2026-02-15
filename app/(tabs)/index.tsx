@@ -45,7 +45,9 @@ const MapScreen: React.FC = () => {
     null,
   );
   const [pendingName, setPendingName] = useState<string | undefined>(undefined);
-  const [pendingAddress, setPendingAddress] = useState<string | undefined>(undefined);
+  const [pendingAddress, setPendingAddress] = useState<string | undefined>(
+    undefined,
+  );
   const [showQuickSelector, setShowQuickSelector] = useState(false);
   const [showAddressSearch, setShowAddressSearch] = useState(false);
   const [shouldFitMarkers, setShouldFitMarkers] = useState(false);
@@ -130,7 +132,9 @@ const MapScreen: React.FC = () => {
   };
 
   const handleMapReady = () => {
-    console.log("Map is ready");
+    if (__DEV__) {
+      console.log("Map is ready");
+    }
   };
 
   const handleRetryLocation = () => {

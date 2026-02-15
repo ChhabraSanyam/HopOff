@@ -119,7 +119,7 @@ const SettingsScreen: React.FC = () => {
           onPress: () => {
             dispatch(
               updateSettings({
-                defaultTriggerRadius: 200,
+                defaultTriggerRadius: 500,
                 vibrationEnabled: true,
                 persistentNotificationEnabled: true,
                 batteryOptimizationEnabled: true,
@@ -208,7 +208,7 @@ const SettingsScreen: React.FC = () => {
                         styles.radiusButtonTextActive,
                     ]}
                   >
-                    {radius}m
+                    {radius >= 1000 ? `${radius / 1000} km` : `${radius}m`}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -277,8 +277,8 @@ const SettingsScreen: React.FC = () => {
 
         <SettingsSection title="Battery & Performance">
           <SettingsRow
-            label="Battery Optimization"
-            description="Reduce location polling frequency when battery is low to extend battery life"
+            label="Smart Location Tracking"
+            description="Reduce GPS usage when far from destination, increase precision when close. Saves battery during longer journeys."
           >
             <Switch
               value={settings.batteryOptimizationEnabled}

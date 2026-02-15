@@ -1,5 +1,10 @@
 // Service for handling destination selection logic and validation
-import { Coordinate, Destination, ValidationResult } from "../types";
+import {
+  Coordinate,
+  Destination,
+  ValidationResult,
+  VALIDATION_CONSTANTS,
+} from "../types";
 import {
   formatCoordinate,
   generateId,
@@ -223,10 +228,9 @@ export class DestinationSelectionService {
         destination.coordinate,
       );
 
-      if (distance < 50) {
-        // Less than 50 meters
+      if (distance < VALIDATION_CONSTANTS.MIN_TRIGGER_RADIUS) {
         errors.push(
-          "Destination is too close to your current location (minimum 50m)",
+          `Destination is too close to your current location (minimum ${VALIDATION_CONSTANTS.MIN_TRIGGER_RADIUS}m)`,
         );
       }
 

@@ -32,7 +32,14 @@ interface DestinationConfirmationModalProps {
 
 const DestinationConfirmationModal: React.FC<
   DestinationConfirmationModalProps
-> = ({ visible, coordinate, onConfirm, onCancel, initialName, initialAddress }) => {
+> = ({
+  visible,
+  coordinate,
+  onConfirm,
+  onCancel,
+  initialName,
+  initialAddress,
+}) => {
   const dispatch = useDispatch();
   const [destinationName, setDestinationName] = useState("");
   const [address, setAddress] = useState("");
@@ -49,7 +56,7 @@ const DestinationConfirmationModal: React.FC<
       setAddress(initialAddress || formatCoordinate(coordinate));
       setAddToFavourites(false);
       setValidationErrors([]);
-      
+
       // Only load address from coordinate if not already provided
       if (!initialAddress) {
         loadAddressFromCoordinate(coordinate);
@@ -152,7 +159,6 @@ const DestinationConfirmationModal: React.FC<
 
       if (result.type === "destinations/save/fulfilled") {
         const savedDestination = result.payload as Destination;
-        console.log("Destination saved as favorite:", savedDestination.id);
 
         onConfirm(savedDestination);
       } else {

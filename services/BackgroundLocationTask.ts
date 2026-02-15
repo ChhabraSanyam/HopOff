@@ -27,6 +27,9 @@ const ACTIVE_ALARMS_STORAGE_KEY = "hopoff_active_alarms";
 const SETTINGS_STORAGE_KEY = "user_settings";
 const PERSISTENT_NOTIFICATION_ID = "hop-off-persistent";
 
+const MIN_CHECK_INTERVAL_MS = 10_000; // Throttle: ignore updates faster than 10s
+let lastCheckTimestamp = 0;
+
 // ─── Read/write persisted alarms (same key as AlarmManager) ─────────────────
 // These cannot be imported from AlarmManager to avoid a circular dependency
 // (AlarmManager → BackgroundLocationTask → AlarmManager).
@@ -90,15 +93,19 @@ async function performAlarmCheck(currentCoord: {
   for (const alarm of alarms) {
     const dist = calculateDistance(currentCoord, alarm.destination.coordinate);
 
-    console.log(
-      `BG check: ${dist.toFixed(0)}m to ${alarm.destination.name} (trigger at ${alarm.settings.triggerRadius}m)`,
-    );
+    if (__DEV__) {
+      console.log(
+        `BG check: ${dist.toFixed(0)}m to ${alarm.destination.name} (trigger at ${alarm.settings.triggerRadius}m)`,
+      );
+    }
 
     if (dist <= alarm.settings.triggerRadius) {
       triggeredAlarmIds.push(alarm.id);
       await notificationManager.showAlarmNotification(alarm);
       await removePersistedAlarm(alarm.id);
-      console.log(`BG alarm triggered: ${alarm.destination.name}`);
+      if (__DEV__) {
+        console.log(`BG alarm triggered: ${alarm.destination.name}`);
+      }
     }
   }
 
@@ -151,6 +158,11 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
   if (!locations || locations.length === 0) return;
 
   const latest = locations[locations.length - 1];
+
+  // Throttle: skip if we checked too recently (Android can fire very fast in foreground)
+  if (latest.timestamp - lastCheckTimestamp < MIN_CHECK_INTERVAL_MS) return;
+  lastCheckTimestamp = latest.timestamp;
+
   const { latitude, longitude } = latest.coords;
   await performAlarmCheck({ latitude, longitude });
 });
@@ -173,7 +185,9 @@ export class BackgroundLocationManager {
         BACKGROUND_LOCATION_TASK,
       );
       if (isRegistered) {
-        console.log("BackgroundLocationTask: already running");
+        if (__DEV__) {
+          console.log("BackgroundLocationTask: already running");
+        }
         BackgroundLocationManager._isRunning = true;
         return;
       }
@@ -195,10 +209,11 @@ export class BackgroundLocationManager {
         accuracy: Location.Accuracy.Balanced,
         distanceInterval: 50, // metres — update every 50m moved
         timeInterval: 15_000, // minimum 15s between updates
+        deferredUpdatesInterval: 10_000,
         showsBackgroundLocationIndicator: true, // iOS blue bar
         pausesUpdatesAutomatically: false, // never auto-pause
 
-        // Android foreground service — this is what keeps the process alive
+        // Android foreground service — keeps process alive in background
         foregroundService: {
           notificationTitle: "",
           notificationBody: "",
@@ -206,7 +221,9 @@ export class BackgroundLocationManager {
       });
 
       BackgroundLocationManager._isRunning = true;
-      console.log("BackgroundLocationTask: started");
+      if (__DEV__) {
+        console.log("BackgroundLocationTask: started");
+      }
 
       // Perform an immediate first check so the persistent notification
       // appears right away instead of waiting for the first OS location update.

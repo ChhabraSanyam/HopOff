@@ -54,7 +54,6 @@ export class GeofenceServiceError extends Error {
 
 // Internal event handler reference for the task (must be module-level)
 let _geofenceEventHandler: GeofenceEventHandler | null = null;
-let _debugMode = typeof __DEV__ !== "undefined" ? __DEV__ : false;
 
 /**
  * CRITICAL: TaskManager.defineTask MUST be called at the module level,
@@ -85,7 +84,7 @@ TaskManager.defineTask(GEOFENCING_TASK, async ({ data, error }) => {
         timestamp: new Date().toISOString(),
       };
 
-      if (_debugMode) {
+      if (__DEV__) {
         console.log(`Geofence entered: ${region.identifier}`);
       }
 
@@ -99,13 +98,7 @@ TaskManager.defineTask(GEOFENCING_TASK, async ({ data, error }) => {
 
 class GeofencingService {
   private activeGeofences: Map<string, Location.LocationRegion> = new Map();
-  private debugMode = typeof __DEV__ !== "undefined" ? __DEV__ : false;
   private initialized = false;
-
-  constructor() {
-    // Sync the module-level debug mode
-    _debugMode = this.debugMode;
-  }
 
   /**
    * Initialize the service by restoring persisted geofence state
@@ -123,7 +116,7 @@ class GeofencingService {
             this.activeGeofences.set(region.identifier, region);
           }
         }
-        if (this.debugMode && this.activeGeofences.size > 0) {
+        if (__DEV__ && this.activeGeofences.size > 0) {
           console.log(
             `Restored ${this.activeGeofences.size} geofences from storage`,
           );
@@ -215,7 +208,7 @@ class GeofencingService {
       const { status } = await Location.getBackgroundPermissionsAsync();
       return hasServices && status === "granted";
     } catch (error) {
-      if (this.debugMode) {
+      if (__DEV__) {
         console.warn("Error checking geofencing availability:", error);
       }
       return false;
@@ -305,7 +298,7 @@ class GeofencingService {
       // Persist the updated geofences
       await this.persistGeofences();
 
-      if (this.debugMode) {
+      if (__DEV__) {
         console.log(
           `Geofence setup: ${geofenceId} at (${destination.latitude}, ${destination.longitude}) with radius ${radius}m`,
         );
@@ -350,7 +343,7 @@ class GeofencingService {
 
       if (!isTaskRegistered) {
         // Task not registered, nothing to stop - geofence is already cleaned from our state
-        if (this.debugMode) {
+        if (__DEV__) {
           console.log(
             `Geofence ${geofenceId} removed from state (task not active)`,
           );
@@ -367,19 +360,19 @@ class GeofencingService {
           await Location.stopGeofencingAsync(GEOFENCING_TASK);
         } catch (stopError) {
           // Task might already be stopped or not exist - this is okay
-          if (this.debugMode) {
+          if (__DEV__) {
             console.warn("Error stopping geofencing:", stopError);
           }
         }
       }
 
-      if (this.debugMode) {
+      if (__DEV__) {
         console.log(`Geofence removed: ${geofenceId}`);
       }
 
       return hadGeofence;
     } catch (error) {
-      if (this.debugMode) {
+      if (__DEV__) {
         console.error(`Failed to remove geofence ${geofenceId}:`, error);
       }
       // Still return true if we at least removed it from our internal tracking
@@ -408,17 +401,17 @@ class GeofencingService {
           await Location.stopGeofencingAsync(GEOFENCING_TASK);
         } catch (stopError) {
           // Task might already be stopped - this is okay
-          if (this.debugMode) {
+          if (__DEV__) {
             console.warn("Error stopping geofencing:", stopError);
           }
         }
       }
 
-      if (this.debugMode) {
+      if (__DEV__) {
         console.log("All geofences removed");
       }
     } catch (error) {
-      if (this.debugMode) {
+      if (__DEV__) {
         console.error("Failed to remove all geofences:", error);
       }
       throw error;
@@ -462,22 +455,14 @@ class GeofencingService {
       await this.removeAllGeofences();
       _geofenceEventHandler = null;
 
-      if (this.debugMode) {
+      if (__DEV__) {
         console.log("Geofencing service cleaned up");
       }
     } catch (error) {
-      if (this.debugMode) {
+      if (__DEV__) {
         console.error("Error during cleanup:", error);
       }
     }
-  }
-
-  /**
-   * Enable or disable debug mode
-   */
-  setDebugMode(enabled: boolean): void {
-    this.debugMode = enabled;
-    _debugMode = enabled;
   }
 
   /**

@@ -17,9 +17,9 @@ export const VALIDATION_CONSTANTS = {
   MAX_LATITUDE: 90,
   MIN_LONGITUDE: -180,
   MAX_LONGITUDE: 180,
-  MIN_TRIGGER_RADIUS: 50, // meters
+  MIN_TRIGGER_RADIUS: 200, // meters
   MAX_TRIGGER_RADIUS: 2000, // meters
-  VALID_TRIGGER_RADII: [100, 200, 500] as const, // predefined options
+  VALID_TRIGGER_RADII: [250, 500, 1000] as const, // predefined options
   MAX_DESTINATION_NAME_LENGTH: 100,
   MAX_ADDRESS_LENGTH: 200,
 } as const;
@@ -52,11 +52,6 @@ export interface UserSettings {
   vibrationEnabled: boolean;
   persistentNotificationEnabled: boolean;
   batteryOptimizationEnabled: boolean;
-  batteryOptimizationLevel: "auto" | "conservative" | "aggressive" | "disabled";
-  lowBatteryThreshold: number; // 0-1 (percentage when to start optimizing)
-  criticalBatteryThreshold: number; // 0-1 (percentage for maximum optimization)
-  adaptiveLocationAccuracy: boolean; // Reduce accuracy when battery is low
-  backgroundProcessingOptimization: boolean; // Reduce background processing
 }
 
 // Redux state types

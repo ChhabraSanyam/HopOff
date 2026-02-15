@@ -1,13 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useEffect, useRef } from 'react';
-import {
-    Animated,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-} from 'react-native';
+import { Ionicons } from "@expo/vector-icons";
+import React, { useCallback, useEffect, useRef } from "react";
+import { Animated, StyleSheet, Text, TouchableOpacity } from "react-native";
 
-export type ToastType = 'success' | 'error' | 'warning' | 'info';
+export type ToastType = "success" | "error" | "warning" | "info";
 
 interface ToastProps {
   visible: boolean;
@@ -15,16 +10,16 @@ interface ToastProps {
   type?: ToastType;
   duration?: number;
   onHide: () => void;
-  position?: 'top' | 'bottom';
+  position?: "top" | "bottom";
 }
 
 const Toast: React.FC<ToastProps> = ({
   visible,
   message,
-  type = 'info',
+  type = "info",
   duration = 3000,
   onHide,
-  position = 'top',
+  position = "top",
 }) => {
   const slideAnim = useRef(new Animated.Value(0)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
@@ -77,13 +72,13 @@ const Toast: React.FC<ToastProps> = ({
 
   const getToastStyle = () => {
     switch (type) {
-      case 'success':
+      case "success":
         return styles.success;
-      case 'error':
+      case "error":
         return styles.error;
-      case 'warning':
+      case "warning":
         return styles.warning;
-      case 'info':
+      case "info":
       default:
         return styles.info;
     }
@@ -91,21 +86,21 @@ const Toast: React.FC<ToastProps> = ({
 
   const getIcon = () => {
     switch (type) {
-      case 'success':
-        return 'checkmark-circle';
-      case 'error':
-        return 'close-circle';
-      case 'warning':
-        return 'warning';
-      case 'info':
+      case "success":
+        return "checkmark-circle";
+      case "error":
+        return "close-circle";
+      case "warning":
+        return "warning";
+      case "info":
       default:
-        return 'information-circle';
+        return "information-circle";
     }
   };
 
   const translateY = slideAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: position === 'top' ? [-100, 0] : [100, 0],
+    outputRange: position === "top" ? [-100, 0] : [100, 0],
   });
 
   if (!visible) {
@@ -116,7 +111,7 @@ const Toast: React.FC<ToastProps> = ({
     <Animated.View
       style={[
         styles.container,
-        position === 'top' ? styles.topPosition : styles.bottomPosition,
+        position === "top" ? styles.topPosition : styles.bottomPosition,
         {
           transform: [{ translateY }],
           opacity: opacityAnim,
@@ -140,7 +135,7 @@ const Toast: React.FC<ToastProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    position: 'absolute',
+    position: "absolute",
     left: 16,
     right: 16,
     zIndex: 1000,
@@ -152,12 +147,12 @@ const styles = StyleSheet.create({
     bottom: 100,
   },
   toast: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 8,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -167,22 +162,22 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   success: {
-    backgroundColor: '#34C759',
+    backgroundColor: "#34C759",
   },
   error: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: "#FF3B30",
   },
   warning: {
-    backgroundColor: '#FF9500',
+    backgroundColor: "#FF9500",
   },
   info: {
-    backgroundColor: '#007AFF',
+    backgroundColor: "#007AFF",
   },
   message: {
     flex: 1,
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
     marginLeft: 12,
     marginRight: 8,
   },

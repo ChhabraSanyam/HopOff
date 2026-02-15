@@ -69,7 +69,6 @@ export class NominatimServiceImpl implements NominatimService {
       const cacheKey = `${trimmedQuery}_${limit}`;
       const cached = this.searchCache.get(cacheKey);
       if (cached && Date.now() - cached.timestamp < this.cacheExpiry) {
-        console.log("Returning cached search results for:", trimmedQuery);
         return cached.results;
       }
 
@@ -176,7 +175,6 @@ export class NominatimServiceImpl implements NominatimService {
       const cacheKey = `${coordinate.latitude.toFixed(4)}_${coordinate.longitude.toFixed(4)}`;
       const cached = this.reverseGeocodeCache.get(cacheKey);
       if (cached && Date.now() - cached.timestamp < this.cacheExpiry) {
-        console.log("Returning cached reverse geocode result for:", coordinate);
         return cached.result;
       }
 
@@ -324,7 +322,6 @@ export class NominatimServiceImpl implements NominatimService {
   clearCache(): void {
     this.searchCache.clear();
     this.reverseGeocodeCache.clear();
-    console.log("Nominatim cache cleared");
   }
 
   /**

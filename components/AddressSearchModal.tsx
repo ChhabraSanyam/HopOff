@@ -1,10 +1,13 @@
-import React, { useEffect } from 'react';
-import { Modal, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAppDispatch, useSearchHistory } from '../store/hooks';
-import { addToSearchHistory, loadSearchHistory } from '../store/slices/destinationSlice';
-import { AddressSearchResult, Destination } from '../types';
-import AddressSearchComponent from './AddressSearchComponent';
+import React, { useEffect } from "react";
+import { Modal, StyleSheet, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useAppDispatch, useSearchHistory } from "../store/hooks";
+import {
+  addToSearchHistory,
+  loadSearchHistory,
+} from "../store/slices/destinationSlice";
+import { AddressSearchResult, Destination } from "../types";
+import AddressSearchComponent from "./AddressSearchComponent";
 
 interface AddressSearchModalProps {
   visible: boolean;
@@ -39,16 +42,19 @@ const AddressSearchModal: React.FC<AddressSearchModalProps> = ({
 
     // Close modal first
     onClose();
-    
+
     // Call parent callback
     onSelectAddress(destination);
   };
 
-  const handleAddToHistory = async (query: string, result: AddressSearchResult) => {
+  const handleAddToHistory = async (
+    query: string,
+    result: AddressSearchResult,
+  ) => {
     try {
       await dispatch(addToSearchHistory({ query, result })).unwrap();
     } catch (error) {
-      console.error('Failed to add to search history:', error);
+      console.error("Failed to add to search history:", error);
       // Don't show error to user - search history is not critical
     }
   };
@@ -79,7 +85,7 @@ const AddressSearchModal: React.FC<AddressSearchModalProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'white',
+    backgroundColor: "white",
   },
   content: {
     flex: 1,

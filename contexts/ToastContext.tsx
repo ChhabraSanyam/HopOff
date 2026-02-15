@@ -1,11 +1,11 @@
-import React, { createContext, ReactNode, useContext, useState } from 'react';
-import Toast, { ToastType } from '../components/Toast';
+import React, { createContext, ReactNode, useContext, useState } from "react";
+import Toast, { ToastType } from "../components/Toast";
 
 interface ToastConfig {
   message: string;
   type?: ToastType;
   duration?: number;
-  position?: 'top' | 'bottom';
+  position?: "top" | "bottom";
 }
 
 interface ToastContextType {
@@ -55,7 +55,7 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
 export const useToast = (): ToastContextType => {
   const context = useContext(ToastContext);
   if (!context) {
-    throw new Error('useToast must be used within a ToastProvider');
+    throw new Error("useToast must be used within a ToastProvider");
   }
   return context;
 };

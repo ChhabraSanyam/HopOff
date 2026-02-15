@@ -1,11 +1,11 @@
-import React, { useRef, useEffect } from 'react';
-import { Animated, ViewStyle, Dimensions } from 'react-native';
+import React, { useRef, useEffect } from "react";
+import { Animated, ViewStyle, Dimensions } from "react-native";
 
-const { height: screenHeight } = Dimensions.get('window');
+const { height: screenHeight } = Dimensions.get("window");
 
 interface SlideInViewProps {
   children: React.ReactNode;
-  direction?: 'up' | 'down' | 'left' | 'right';
+  direction?: "up" | "down" | "left" | "right";
   duration?: number;
   delay?: number;
   style?: ViewStyle;
@@ -14,7 +14,7 @@ interface SlideInViewProps {
 
 const SlideInView: React.FC<SlideInViewProps> = ({
   children,
-  direction = 'up',
+  direction = "up",
   duration = 300,
   delay = 0,
   style,
@@ -24,15 +24,15 @@ const SlideInView: React.FC<SlideInViewProps> = ({
 
   const getInitialOffset = () => {
     const defaultDistance = distance || screenHeight * 0.1;
-    
+
     switch (direction) {
-      case 'up':
+      case "up":
         return defaultDistance;
-      case 'down':
+      case "down":
         return -defaultDistance;
-      case 'left':
+      case "left":
         return defaultDistance;
-      case 'right':
+      case "right":
         return -defaultDistance;
       default:
         return defaultDistance;
@@ -45,7 +45,7 @@ const SlideInView: React.FC<SlideInViewProps> = ({
       outputRange: [getInitialOffset(), 0],
     });
 
-    if (direction === 'left' || direction === 'right') {
+    if (direction === "left" || direction === "right") {
       return [{ translateX: offset }];
     } else {
       return [{ translateY: offset }];
@@ -54,7 +54,7 @@ const SlideInView: React.FC<SlideInViewProps> = ({
 
   useEffect(() => {
     slideAnim.setValue(0);
-    
+
     const timer = setTimeout(() => {
       Animated.spring(slideAnim, {
         toValue: 1,
