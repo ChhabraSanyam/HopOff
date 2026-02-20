@@ -1,78 +1,65 @@
-# HopOff! - Location-based Transport Alarms
+# HopOff! – Geo Alarm
 
-A React Native mobile application that helps public transport users avoid missing their stops by providing location-based alarms.
+**HopOff!** is a cross-platform mobile application, which provides customizable location-based alerts designed to help public transport commuters (with a focus on Delhi Metro passengers) avoid missing their stops by triggering alarms(notifications, sound, and haptics) when they approach their destination.
 
-## Project Overview
 
-This project uses **Expo SDK 54** with **Expo Router** for modern file-based routing and follows current Expo development best practices.
+## Features
 
-### Technology Stack
+- **Offline First**: Works fully offline after a location is saved. Uses local SQLite for metro route data and search history.
+- **Smart Notifications**: Persistent notifications showing real-time distance to your destination, coupled with sound and haptic alerts.
+- **Interactive Map & Search**: Integrated search for addresses with real-time feedback and the ability to pin destinations directly on the map.
+- **Hybrid Location Monitoring**: Combines native OS-level geofencing with background distance polling to ensure high reliability even in high-speed transit environments.
+- **Adaptive Battery Optimization**: Dynamic polling frequency that adjusts based on distance to minimize battery drain when far from the destination.
+- **Delhi Metro Integration**: Specialized offline support for the Delhi Metro system, including automatic detection and alarm configuration for interchange stops.
+- **GPS-Denied Fallback**: Predictive alert mechanism using last known speed and ETA for underground/tunnel segments (Currently under refinement).
 
-- **Framework**: Expo SDK 54.0.31, React Native 0.81.5, React 19.1.0
-- **Navigation**: Expo Router 6.0.21 (file-based routing)
-- **State Management**: Redux Toolkit 2.11.2, React Redux 9.2.0
-- **Location Services**: Expo Location, Expo Task Manager
-- **Maps**: React Native Maps 1.20.1
+
+## Technical Implementation
+
+### 1. Hybrid Monitoring Model
+Standard geofencing can sometimes fail in high-speed environments like Metro. HopOff! solves this by implementing a hybrid model:
+- **OS Geofencing**: Low-power monitoring for broad arrival detection.
+- **Background Polling**: Uses the **Haversine Formula** to calculate great-circle distances in a background task, providing precise UI updates and triggering alerts if geofencing is missed.
+
+### 2. Battery & Performance Optimization
+- **Adaptive Polling**: The application adjusts the location check frequency based on the remaining distance to the destination (higher frequency when near, lower when far).
+- **Foreground Services**: Uses Android Foreground Services to ensure the background task remains active even when the app is closed or the screen is off.
+
+### Offline-First Architecture
+HopOff! is designed to be functional in data-poor environments:
+-   **SQLite**: Stores the entire Delhi Metro station network and interchange logic.
+-   **Search History**: Previous destinations are cached for one-tap access.
+-   **Geocoding**: Required only during the initial search; all subsequent monitoring logic is local.
+
+
+## Tech Stack
+
+- **Framework**: React Native + Expo SDK 54
+- **Navigation**: Expo Router (file-based navigation)
+- **State Management**: Redux Toolkit (global state), React Context (UI-specific state)
+- **Maps**: React Native Maps
+- **Geocoding**: Nominatim (OpenStreetMap)
+- **Persistence**: Expo SQLite, AsyncStorage
 - **Notifications**: Expo Notifications
-- **Storage**: Async Storage, Expo SQLite
-- **Development**: TypeScript 5.9.2, ESLint
+- **Task Management**: Expo Task Manager
 
-### Project Structure
 
-```
-app/
-├── _layout.tsx                 # Root layout with providers
-├── index.tsx                   # Entry point (redirect logic)
-├── (tabs)/
-│   ├── _layout.tsx             # Tab navigation layout
-│   ├── index.tsx               # Map screen (main tab)
-│   ├── alarm.tsx               # Alarm management screen
-│   ├── destinations.tsx        # Saved destinations screen
-│   └── settings.tsx            # Settings screen
-├── (onboarding)/
-│   ├── _layout.tsx             # Onboarding layout
-│   └── index.tsx               # Onboarding screen
-└── +not-found.tsx              # 404 page
+## Project Structure
 
-components/                     # Reusable UI components
-services/                       # Business logic services
-store/                          # Redux store and slices
-types/                          # TypeScript type definitions
-utils/                          # Utility functions
-hooks/                          # Custom React hooks
-contexts/                       # React contexts
-metro/                          # Metro components
+```text
+├── app/                  # Expo Router screens and layouts
+│   ├── (onboarding)/     # First-time user experience
+│   ├── (tabs)/           # Main application tabs (Map, Alarms, History, Settings)
+│   └── _layout.tsx       # Root layout and context providers
+├── components/           # Reusable UI components
+├── contexts/             # React Contexts (e.g., Toast notifications)
+├── services/             # Business logic layer (AlarmManager, LocationManager, etc.)
+├── store/                # Redux store, slices, and hooks
+├── types/                # TypeScript interfaces and type definitions
+├── utils/                # Helper functions and shared utilities
+└── assets/               # Static assets (images, icons, fonts)
 ```
 
-### Key Features
 
-- **Location-based Alarms**: Smart alarms that trigger based on proximity to destinations
-- **Interactive Map**: Touch-to-select destinations with real-time location tracking
-- **Geofencing**: Battery-efficient location monitoring using native geofencing APIs
-- **Metro Integration**: Specialized support for metro/subway systems with route calculation
-- **Customizable Settings**: Adjustable alarm distances, vibration, and notification preferences (sounds managed via system notification settings)
-- **Saved Destinations**: Quick access to frequently used locations
-- **Background Processing**: Reliable alarm triggering even when app is backgrounded
-- **Cross-Platform**: Native iOS and Android support with platform-specific optimizations
-
-### Architecture Highlights
-
-- **File-based Routing**: Modern navigation with Expo Router
-- **Type Safety**: Full TypeScript integration with auto-generated route types
-- **State Management**: Centralized state with Redux Toolkit and RTK Query
-- **Service Layer**: Modular business logic with dedicated service classes
-- **Native Integration**: Direct access to iOS CoreLocation and Android GeofencingClient
-- **Performance Optimized**: React Compiler enabled for improved performance
-
-### Development
-
-```bash
-# Start the development server
-npm start
-
-# Lint code
-npm run lint
-
-# Type check
-npx tsc --noEmit
-```
+## 📄 License
+This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
