@@ -1,3 +1,4 @@
+import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect } from "react";
 import { Modal, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -66,18 +67,25 @@ const AddressSearchModal: React.FC<AddressSearchModalProps> = ({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <SafeAreaView style={styles.container}>
-        <View style={styles.content}>
-          <AddressSearchComponent
-            onSelectResult={handleSelectResult}
-            onClose={onClose}
-            placeholder="Search for an address or place..."
-            searchHistory={searchHistory}
-            onAddToHistory={handleAddToHistory}
-            showHistory={true}
-          />
-        </View>
-      </SafeAreaView>
+      <LinearGradient
+        colors={["rgba(130, 26, 25, 0.8)", "rgba(232, 47, 45, 0.48)"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={styles.container}
+      >
+        <SafeAreaView style={{ flex: 1 }}>
+          <View style={styles.content}>
+            <AddressSearchComponent
+              onSelectResult={handleSelectResult}
+              onClose={onClose}
+              placeholder="Search for an address or place..."
+              searchHistory={searchHistory}
+              onAddToHistory={handleAddToHistory}
+              showHistory={true}
+            />
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
     </Modal>
   );
 };
@@ -85,7 +93,6 @@ const AddressSearchModal: React.FC<AddressSearchModalProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "white",
   },
   content: {
     flex: 1,

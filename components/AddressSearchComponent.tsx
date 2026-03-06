@@ -48,6 +48,7 @@ const AddressSearchComponent: React.FC<AddressSearchComponentProps> = ({
     error: null,
     showResults: false,
   });
+  const [isFocused, setIsFocused] = useState(false);
 
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -127,6 +128,18 @@ const AddressSearchComponent: React.FC<AddressSearchComponentProps> = ({
     },
     [performSearch],
   );
+
+  // Reset state every time the component mounts (modal reopened)
+  useEffect(() => {
+    setSearchState({
+      query: "",
+      results: [],
+      isLoading: false,
+      error: null,
+      showResults: false,
+    });
+    setIsFocused(false);
+  }, []);
 
   // Cleanup timer on unmount
   useEffect(() => {
@@ -250,9 +263,11 @@ const AddressSearchComponent: React.FC<AddressSearchComponentProps> = ({
           value={searchState.query}
           onChangeText={handleSearchChange}
           placeholder={placeholder}
-          placeholderTextColor="#999"
+          placeholderTextColor="rgba(255,255,255,0.6)"
           autoFocus
           returnKeyType="search"
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
           onSubmitEditing={() => performSearch(searchState.query)}
         />
         {searchState.query.length > 0 && (
@@ -300,12 +315,12 @@ const AddressSearchComponent: React.FC<AddressSearchComponentProps> = ({
         </View>
       )}
 
-      {/* Search History */}
+      {/* Search History — shown above the pin */}
       {showHistorySection && (
         <View style={styles.historyContainer}>
           <Text style={styles.sectionTitle}>Recent Searches</Text>
           <FlatList
-            data={searchHistory.slice(0, 5)} // Show only last 5 searches
+            data={searchHistory.slice(0, 5)}
             renderItem={renderHistoryItem}
             keyExtractor={(item) => item.id}
             showsVerticalScrollIndicator={false}
@@ -314,18 +329,7 @@ const AddressSearchComponent: React.FC<AddressSearchComponentProps> = ({
         </View>
       )}
 
-      {/* Empty State */}
-      {!searchState.isLoading &&
-        !searchState.error &&
-        !showHistorySection &&
-        searchState.results.length === 0 &&
-        searchState.query.length === 0 && (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>
-              Start typing to search for addresses
-            </Text>
-          </View>
-        )}
+
     </View>
   );
 };
@@ -333,7 +337,7 @@ const AddressSearchComponent: React.FC<AddressSearchComponentProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "white",
+    backgroundColor: "transparent",
   },
   header: {
     flexDirection: "row",
@@ -341,19 +345,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    borderBottomColor: "rgba(255,255,255,0.2)",
   },
   title: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#333",
+    color: "#FFFFFF",
   },
   closeButton: {
     padding: 8,
   },
   closeButtonText: {
     fontSize: 18,
-    color: "#666",
+    color: "rgba(255,255,255,0.8)",
   },
   searchContainer: {
     flexDirection: "row",
@@ -361,15 +365,15 @@ const styles = StyleSheet.create({
     margin: 16,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "rgba(255,255,255,0.15)",
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#ddd",
+    borderColor: "rgba(255,255,255,0.3)",
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: "#333",
+    color: "#FFFFFF",
     paddingVertical: 4,
   },
   clearButton: {
@@ -378,7 +382,7 @@ const styles = StyleSheet.create({
   },
   clearButtonText: {
     fontSize: 16,
-    color: "#999",
+    color: "rgba(255,255,255,0.7)",
   },
   loadingContainer: {
     flexDirection: "row",
@@ -389,7 +393,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginLeft: 8,
     fontSize: 14,
-    color: "#666",
+    color: "rgba(255,255,255,0.8)",
   },
   errorContainer: {
     padding: 16,
@@ -423,7 +427,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#333",
+    color: "rgba(255,255,255,0.9)",
     marginBottom: 8,
   },
   resultsList: {
@@ -433,7 +437,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 4,
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
+    borderBottomColor: "rgba(255,255,255,0.15)",
   },
   resultContent: {
     flex: 1,
@@ -441,18 +445,18 @@ const styles = StyleSheet.create({
   resultTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#333",
+    color: "#FFFFFF",
     marginBottom: 4,
   },
   resultAddress: {
     fontSize: 14,
-    color: "#666",
+    color: "rgba(255,255,255,0.7)",
     marginBottom: 4,
     lineHeight: 18,
   },
   resultType: {
     fontSize: 12,
-    color: "#999",
+    color: "rgba(255,255,255,0.5)",
     textTransform: "capitalize",
   },
   historyContainer: {
@@ -468,7 +472,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 4,
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
+    borderBottomColor: "rgba(255,255,255,0.15)",
   },
   historyContent: {
     flex: 1,
@@ -476,28 +480,40 @@ const styles = StyleSheet.create({
   historyQuery: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#333",
+    color: "#FFFFFF",
     marginBottom: 2,
   },
   historyAddress: {
     fontSize: 12,
-    color: "#666",
+    color: "rgba(255,255,255,0.65)",
   },
   historyTime: {
     fontSize: 11,
-    color: "#999",
+    color: "rgba(255,255,255,0.5)",
     marginLeft: 8,
   },
   emptyContainer: {
-    flex: 1,
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     justifyContent: "center",
     alignItems: "center",
-    padding: 32,
+    pointerEvents: "none",
   },
   emptyText: {
-    fontSize: 16,
-    color: "#999",
+    fontSize: 17,
+    fontWeight: "600",
+    color: "rgba(255,255,255,0.9)",
     textAlign: "center",
+    marginTop: 16,
+  },
+  emptySubText: {
+    fontSize: 13,
+    color: "rgba(255,255,255,0.6)",
+    textAlign: "center",
+    marginTop: 6,
   },
 });
 

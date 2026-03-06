@@ -39,11 +39,11 @@ const MapComponent: React.FC<MapComponentProps> = ({
   // Calculate initial region based on current location or use default
   const initialRegion: Region = currentLocation
     ? {
-        latitude: currentLocation.latitude,
-        longitude: currentLocation.longitude,
-        latitudeDelta: 0.0922,
-        longitudeDelta: 0.0421,
-      }
+      latitude: currentLocation.latitude,
+      longitude: currentLocation.longitude,
+      latitudeDelta: 0.0922,
+      longitudeDelta: 0.0421,
+    }
     : mapRegion || defaultRegion;
 
   const handleMapPress = (event: { nativeEvent: { coordinate: LatLng } }) => {
@@ -143,7 +143,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
       onMapReady={handleMapReady}
       onRegionChangeComplete={handleRegionChangeComplete}
       showsUserLocation={true}
-      showsMyLocationButton={true}
+      showsMyLocationButton={false}
       showsCompass={true}
       showsScale={true}
       mapType="standard"

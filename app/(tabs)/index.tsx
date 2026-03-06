@@ -1,9 +1,11 @@
 // Main map screen for destination selection and alarm management
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
-import { Alert, StyleSheet, Text, View } from "react-native";
+import { Alert, Image, StyleSheet, Text, TouchableOpacity } from "react-native";
 import { LatLng } from "react-native-maps";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import AddressSearchModal from "../../components/AddressSearchModal";
 import AnimatedButton from "../../components/AnimatedButton";
 import DestinationConfirmationModal from "../../components/DestinationConfirmationModal";
@@ -31,6 +33,7 @@ import { setSelectedDestination } from "../../store/slices/uiSlice";
 import { AlarmSettings, Coordinate, Destination } from "../../types";
 
 const MapScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
   const dispatch = useAppDispatch();
   const currentLocation = useCurrentLocation();
   const locationPermission = useLocationPermission();
@@ -200,7 +203,7 @@ const MapScreen: React.FC = () => {
       // Navigate to alarm screen
       Alert.alert(
         "Alarm Created",
-        `Alarm has been set for: ${destination.name}`,
+        `Alarm has been set for: ${destination.name} `,
         [
           {
             text: "View Alarm",
@@ -278,7 +281,7 @@ const MapScreen: React.FC = () => {
       // Navigate to alarm screen
       Alert.alert(
         "Alarm Created",
-        `Alarm has been set for: ${destination.name}`,
+        `Alarm has been set for: ${destination.name} `,
         [
           {
             text: "View Alarm",
@@ -339,6 +342,38 @@ const MapScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+      {/* ── Header bar (overlaid on map) ── */}
+      <LinearGradient
+        colors={["rgba(232, 47, 45, 0.48)", "rgba(255,255,255,0)"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={styles.headerBar}
+      >
+        {/* Left: re-centre to current location */}
+        <TouchableOpacity
+          style={styles.headerBtn}
+          onPress={initializeLocation}
+          disabled={isLoadingLocation}
+        >
+          <Ionicons name="locate" size={22} color="#FFFFFF" />
+        </TouchableOpacity>
+
+        {/* Centre: logo */}
+        <Image
+          source={require("../../assets/images/logo.png")}
+          style={styles.headerLogo}
+          resizeMode="contain"
+        />
+
+        {/* Right: search */}
+        <TouchableOpacity
+          style={styles.headerBtn}
+          onPress={() => setShowAddressSearch(true)}
+        >
+          <Ionicons name="search" size={22} color="#FFFFFF" />
+        </TouchableOpacity>
+      </LinearGradient>
+
       <MapComponent
         currentLocation={currentLocation}
         selectedDestination={selectedDestination}
@@ -370,7 +405,10 @@ const MapScreen: React.FC = () => {
 
       {/* Selected destination info */}
       {selectedDestination && (
-        <SlideInView direction="up" style={styles.destinationInfo}>
+        <SlideInView
+          direction="up"
+          style={{ ...styles.destinationInfo, bottom: 60 + insets.bottom + 35 }}
+        >
           <Text style={styles.destinationTitle}>
             {selectedDestination.name}
           </Text>
@@ -384,29 +422,6 @@ const MapScreen: React.FC = () => {
             size="small"
           />
         </SlideInView>
-      )}
-
-      {/* Instructions and Action Buttons */}
-      {!selectedDestination && !isLoadingLocation && !locationError && (
-        <FadeInView delay={500} style={styles.instructionsContainer}>
-          <Text style={styles.instructionsText}>
-            Tap on the map to select your destination
-          </Text>
-          <View style={styles.actionButtonsContainer}>
-            <AnimatedButton
-              title="Search Address"
-              onPress={() => setShowAddressSearch(true)}
-              size="small"
-              style={styles.actionButton}
-            />
-            <AnimatedButton
-              title="Quick Select"
-              onPress={() => setShowQuickSelector(true)}
-              size="small"
-              style={styles.actionButton}
-            />
-          </View>
-        </FadeInView>
       )}
 
       {/* Destination Confirmation Modal */}
@@ -439,6 +454,32 @@ const MapScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  /* ── Header ── */
+  headerBar: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    height: 160,
+    paddingHorizontal: 12,
+    paddingTop: 10,
+  },
+  headerBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#b9221dff",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  headerLogo: {
+    height: 100,
+    width: 180,
   },
   permissionContainer: {
     flex: 1,
@@ -497,7 +538,7 @@ const styles = StyleSheet.create({
 
   destinationInfo: {
     position: "absolute",
-    bottom: 20,
+    bottom: 20, // overridden inline with dynamic inset
     left: 20,
     right: 20,
     backgroundColor: "white",
@@ -527,15 +568,15 @@ const styles = StyleSheet.create({
   instructionsContainer: {
     position: "absolute",
     top: 50,
-    left: 20,
-    right: 20,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
-    padding: 12,
-    borderRadius: 8,
+    alignSelf: "center",
+    backgroundColor: "rgba(251, 138, 138, 0.5)",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
     alignItems: "center",
   },
   instructionsText: {
-    color: "white",
+    color: "#982C2C",
     fontSize: 14,
     textAlign: "center",
     marginBottom: 8,
@@ -547,6 +588,7 @@ const styles = StyleSheet.create({
   actionButton: {
     flex: 1,
     marginHorizontal: 4,
+    backgroundColor: "#982C2C",
   },
 });
 
