@@ -5,6 +5,7 @@ import React, { useRef, useState } from "react";
 import {
   Alert,
   Dimensions,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -21,9 +22,10 @@ const { width } = Dimensions.get("window");
 
 interface OnboardingStep {
   id: string;
-  title: string;
-  description: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  title?: string;
+  description?: string;
+  icon?: keyof typeof Ionicons.glyphMap;
+  image?: any;
   color: string;
   action?: () => Promise<void>;
   actionText?: string;
@@ -90,11 +92,8 @@ const OnboardingScreen: React.FC = () => {
   const onboardingSteps: OnboardingStep[] = [
     {
       id: "welcome",
-      title: "Welcome to HopOff!",
-      description:
-        "Never miss your stop again! HopOff monitors your location and alerts you when you're approaching your destination.",
-      icon: "location",
-      color: "#007AFF",
+      image: require("../../assets/images/adaptive-icon.png"),
+      color: "#b9221d",
     },
     {
       id: "location",
@@ -102,7 +101,7 @@ const OnboardingScreen: React.FC = () => {
       description:
         "We need access to your location to monitor your journey and trigger alarms when you approach your destination. Your location data stays on your device.",
       icon: "navigate",
-      color: "#34C759",
+      color: "#b9221d",
       action: handleLocationPermission,
       actionText: "Enable Location",
     },
@@ -112,7 +111,7 @@ const OnboardingScreen: React.FC = () => {
       description:
         "Allow notifications so we can alert you when you're near your stop, even when the app is in the background.",
       icon: "notifications",
-      color: "#FF9500",
+      color: "#b9221d",
       action: handleNotificationPermission,
       actionText: "Enable Notifications",
     },
@@ -122,7 +121,7 @@ const OnboardingScreen: React.FC = () => {
       description:
         "• Set destination alarms with custom trigger distances\n• Save favorite destinations for quick access\n• Battery-optimized background monitoring\n• Works offline with GPS",
       icon: "checkmark-circle",
-      color: "#30D158",
+      color: "#b9221d",
     },
     {
       id: "ready",
@@ -130,7 +129,7 @@ const OnboardingScreen: React.FC = () => {
       description:
         "Start by selecting a destination on the map. HopOff will monitor your location and alert you when you're getting close.",
       icon: "rocket",
-      color: "#FF6B6B",
+      color: "#b9221d",
     },
   ];
 
@@ -195,12 +194,33 @@ const OnboardingScreen: React.FC = () => {
   const renderStep = (step: OnboardingStep, index: number) => (
     <View key={step.id} style={styles.stepContainer}>
       <View style={styles.stepContent}>
-        <View style={[styles.iconContainer, { backgroundColor: step.color }]}>
-          <Ionicons name={step.icon} size={48} color="#FFFFFF" />
-        </View>
+        {step.id === "welcome" ? (
+          <>
+            <Image 
+              source={step.image} 
+              style={{ width: 440, height: 540, marginTop: -60, marginBottom: -20 }} 
+              resizeMode="contain" 
+            />
+            <Image 
+              source={require("../../assets/images/logo.png")} 
+              style={{ width: 500, height: 200, marginBottom: 60 }} 
+              resizeMode="contain" 
+            />
+          </>
+        ) : step.image ? (
+          <Image 
+            source={step.image} 
+            style={{ width: 260, height: 260, marginBottom: 32, marginTop: -40 }} 
+            resizeMode="contain" 
+          />
+        ) : (
+          <View style={[styles.iconContainer, { backgroundColor: step.color }]}>
+            {step.icon && <Ionicons name={step.icon} size={48} color="#FFFFFF" />}
+          </View>
+        )}
 
-        <Text style={styles.stepTitle}>{step.title}</Text>
-        <Text style={styles.stepDescription}>{step.description}</Text>
+        {!!step.title && <Text style={styles.stepTitle}>{step.title}</Text>}
+        {!!step.description && <Text style={styles.stepDescription}>{step.description}</Text>}
 
         {step.action && (
           <TouchableOpacity
@@ -279,7 +299,7 @@ const OnboardingScreen: React.FC = () => {
           <Ionicons
             name="chevron-back"
             size={24}
-            color={currentStep === 0 ? "#C7C7CC" : "#007AFF"}
+            color={currentStep === 0 ? "#C7C7CC" : "#b9221d"}
           />
           <Text
             style={[
@@ -335,7 +355,7 @@ const OnboardingScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8F9FA",
+    backgroundColor: "#F2E2E2",
   },
   header: {
     flexDirection: "row",
@@ -363,11 +383,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#E5E5E7",
   },
   progressDotActive: {
-    backgroundColor: "#007AFF",
+    backgroundColor: "#b9221d",
     width: 24,
   },
   progressDotCompleted: {
-    backgroundColor: "#34C759",
+    backgroundColor: "#b9221d",
   },
   placeholder: {
     width: 60,
@@ -428,7 +448,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#F2E2E2",
     borderTopWidth: 1,
     borderTopColor: "#E5E5E7",
   },
@@ -442,7 +462,7 @@ const styles = StyleSheet.create({
   },
   navButtonText: {
     fontSize: 16,
-    color: "#007AFF",
+    color: "#b9221d",
     fontWeight: "500",
     marginLeft: 4,
   },
@@ -452,7 +472,7 @@ const styles = StyleSheet.create({
   nextButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#007AFF",
+    backgroundColor: "#b9221d",
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 8,

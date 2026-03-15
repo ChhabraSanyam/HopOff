@@ -4,7 +4,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -14,6 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AlarmStatusCard from "../../components/AlarmStatusCard";
+import ConfirmModal from "../../components/ConfirmModal";
 import { notificationManager } from "../../services/NotificationManager";
 import {
   useActiveAlarmCount,
@@ -45,6 +45,11 @@ export default function AlarmScreen() {
 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Modal state for single alarm cancellation
+  const [cancelTarget, setCancelTarget] = useState<Alarm | null>(null);
+  // Modal state for cancel-all
+  const [showCancelAll, setShowCancelAll] = useState(false);
+
   useEffect(() => {
     dispatch(getCurrentLocation());
   }, [dispatch]);
@@ -63,59 +68,38 @@ export default function AlarmScreen() {
 
   const handleCancelAlarm = useCallback(
     (alarm: Alarm) => {
-      Alert.alert(
-        "Cancel Alarm",
-        `Are you sure you want to cancel the alarm for ${alarm.destination.name}?`,
-        [
-          { text: "Keep Alarm", style: "cancel" },
-          {
-            text: "Cancel Alarm",
-            style: "destructive",
-            onPress: async () => {
-              try {
-                await dispatch(cancelAlarm(alarm.id)).unwrap();
-                if (alarmCount <= 1) {
-                  await notificationManager.clearNotifications();
-                }
-                Alert.alert(
-                  "Alarm Cancelled",
-                  `Alarm for "${alarm.destination.name}" has been cancelled.`,
-                );
-              } catch (error) {
-                console.error("Error cancelling alarm:", error);
-                Alert.alert("Error", "Failed to cancel alarm. Please try again.");
-              }
-            },
-          },
-        ],
-      );
+      setCancelTarget(alarm);
     },
-    [dispatch, alarmCount],
+    [],
   );
 
+  const confirmCancelAlarm = useCallback(async () => {
+    if (!cancelTarget) return;
+    const alarm = cancelTarget;
+    setCancelTarget(null);
+    try {
+      await dispatch(cancelAlarm(alarm.id)).unwrap();
+      if (alarmCount <= 1) {
+        await notificationManager.clearNotifications();
+      }
+    } catch (error) {
+      console.error("Error cancelling alarm:", error);
+    }
+  }, [cancelTarget, dispatch, alarmCount]);
+
   const handleCancelAllAlarms = useCallback(() => {
-    Alert.alert(
-      "Cancel All Alarms",
-      `Are you sure you want to cancel all ${alarmCount} active alarm${alarmCount > 1 ? "s" : ""}?`,
-      [
-        { text: "Keep Alarms", style: "cancel" },
-        {
-          text: "Cancel All",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await dispatch(cancelAllAlarms()).unwrap();
-              await notificationManager.clearNotifications();
-              Alert.alert("All Alarms Cancelled", "All destination alarms have been cancelled.");
-            } catch (error) {
-              console.error("Error cancelling all alarms:", error);
-              Alert.alert("Error", "Failed to cancel alarms. Please try again.");
-            }
-          },
-        },
-      ],
-    );
-  }, [dispatch, alarmCount]);
+    setShowCancelAll(true);
+  }, []);
+
+  const confirmCancelAllAlarms = useCallback(async () => {
+    setShowCancelAll(false);
+    try {
+      await dispatch(cancelAllAlarms()).unwrap();
+      await notificationManager.clearNotifications();
+    } catch (error) {
+      console.error("Error cancelling all alarms:", error);
+    }
+  }, [dispatch]);
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -219,37 +203,8 @@ export default function AlarmScreen() {
                   alarm={alarm}
                   distance={distance}
                   currentLocation={currentLocation}
+                  onCancel={() => handleCancelAlarm(alarm)}
                 />
-
-                {/* Distance & Cancel */}
-                <View style={styles.alarmActions}>
-                  <View style={styles.distanceInfo}>
-                    {distance !== null ? (
-                      <>
-                        <Text style={styles.distanceValue}>{formatDistance(distance)}</Text>
-                        <Text style={styles.distanceSubtext}>
-                          ~{formatTimeEstimate(distance)} by metro
-                        </Text>
-                      </>
-                    ) : (
-                      <Text style={styles.distanceSubtext}>Calculating...</Text>
-                    )}
-                  </View>
-                  <TouchableOpacity
-                    style={styles.cancelButton}
-                    onPress={() => handleCancelAlarm(alarm)}
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                      <>
-                        <Ionicons name="close-circle" size={18} color="#fff" />
-                        <Text style={styles.cancelButtonText}>Cancel</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                </View>
               </View>
             );
           })}
@@ -266,6 +221,30 @@ export default function AlarmScreen() {
           </View>
         </ScrollView>
       </SafeAreaView>
+
+      {/* Themed cancel confirmation — single alarm */}
+      <ConfirmModal
+        visible={cancelTarget !== null}
+        title="Cancel Alarm"
+        message={cancelTarget ? `Cancel the alarm for "${cancelTarget.destination.name}"?` : ""}
+        confirmLabel="Cancel Alarm"
+        cancelLabel="Keep Alarm"
+        destructive
+        onConfirm={confirmCancelAlarm}
+        onCancel={() => setCancelTarget(null)}
+      />
+
+      {/* Themed cancel confirmation — all alarms */}
+      <ConfirmModal
+        visible={showCancelAll}
+        title="Cancel All Alarms"
+        message={`Are you sure you want to cancel all ${alarmCount} active alarm${alarmCount > 1 ? "s" : ""}?`}
+        confirmLabel="Cancel All"
+        cancelLabel="Keep Alarms"
+        destructive
+        onConfirm={confirmCancelAllAlarms}
+        onCancel={() => setShowCancelAll(false)}
+      />
     </LinearGradient>
   );
 }

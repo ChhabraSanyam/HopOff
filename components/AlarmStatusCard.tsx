@@ -1,19 +1,21 @@
 // Alarm status card component for displaying active alarm information
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Alarm, Coordinate } from "../types";
 
 interface AlarmStatusCardProps {
   alarm: Alarm;
   distance: number | null;
   currentLocation: Coordinate | null;
+  onCancel: () => void;
 }
 
 const AlarmStatusCard: React.FC<AlarmStatusCardProps> = ({
   alarm,
   distance,
   currentLocation,
+  onCancel,
 }) => {
   // Format the creation time
   const formatTime = (date: Date): string => {
@@ -37,6 +39,21 @@ const AlarmStatusCard: React.FC<AlarmStatusCardProps> = ({
       month: "short",
       day: "numeric",
     });
+  };
+
+  // Format the estimated time of arrival
+  const getEtaText = (): string => {
+    if (distance === null) return "Calculating...";
+    const metroSpeedMps = 11;
+    const timeInSeconds = distance / metroSpeedMps;
+    if (timeInSeconds < 60) return `${Math.round(timeInSeconds)} sec`;
+    
+    const totalMinutes = Math.round(timeInSeconds / 60);
+    if (totalMinutes < 60) return `${totalMinutes} min`;
+    
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return minutes > 0 ? `${hours} hr ${minutes} min` : `${hours} hr`;
   };
 
   // Get status color based on distance
@@ -71,6 +88,11 @@ const AlarmStatusCard: React.FC<AlarmStatusCardProps> = ({
 
   return (
     <View style={styles.container}>
+      {/* Red cancel circle — top right */}
+      <TouchableOpacity style={styles.cancelCircle} onPress={onCancel} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <Ionicons name="close" size={16} color="#fff" />
+      </TouchableOpacity>
+
       {/* Status Header */}
       <View style={styles.statusHeader}>
         <View
@@ -101,26 +123,6 @@ const AlarmStatusCard: React.FC<AlarmStatusCardProps> = ({
         </View>
       </View>
 
-      {/* Coordinates Display */}
-      <View style={styles.coordinatesSection}>
-        <Text style={styles.coordinatesLabel}>Destination Coordinates</Text>
-        <Text style={styles.coordinatesText}>
-          {alarm.destination.coordinate.latitude.toFixed(6)},{" "}
-          {alarm.destination.coordinate.longitude.toFixed(6)}
-        </Text>
-      </View>
-
-      {/* Current Location Display */}
-      {currentLocation && (
-        <View style={styles.coordinatesSection}>
-          <Text style={styles.coordinatesLabel}>Current Location</Text>
-          <Text style={styles.coordinatesText}>
-            {currentLocation.latitude.toFixed(6)},{" "}
-            {currentLocation.longitude.toFixed(6)}
-          </Text>
-        </View>
-      )}
-
       {/* Alarm Details */}
       <View style={styles.detailsSection}>
         <View style={styles.detailRow}>
@@ -146,14 +148,22 @@ const AlarmStatusCard: React.FC<AlarmStatusCardProps> = ({
         )}
       </View>
 
-      {/* Distance Badge */}
+      {/* Distance and ETA Badges */}
       {distance !== null && (
-        <View style={styles.distanceBadge}>
-          <Text style={styles.distanceBadgeText}>
-            {distance >= 1000
-              ? `${(distance / 1000).toFixed(1)} km away`
-              : `${Math.round(distance)} m away`}
-          </Text>
+        <View style={styles.badgesContainer}>
+          <View style={styles.distanceBadge}>
+            <Text style={styles.distanceBadgeText}>
+              {distance >= 1000
+                ? `${(distance / 1000).toFixed(1)} km away`
+                : `${Math.round(distance)} m away`}
+            </Text>
+          </View>
+          <View style={[styles.distanceBadge, styles.etaBadge]}>
+            <Ionicons name="time" size={14} color="#fff" style={styles.etaIcon} />
+            <Text style={styles.distanceBadgeText}>
+              ~{getEtaText()}
+            </Text>
+          </View>
         </View>
       )}
     </View>
@@ -239,14 +249,38 @@ const styles = StyleSheet.create({
     color: "#8E8E93",
     marginLeft: 8,
   },
-  distanceBadge: {
+  cancelCircle: {
     position: "absolute",
-    top: 16,
-    right: 16,
+    top: 12,
+    right: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#FF3B30",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10,
+  },
+  badgesContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: 12,
+    gap: 8,
+  },
+  distanceBadge: {
+    alignSelf: "flex-start",
     backgroundColor: "#007AFF",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  etaBadge: {
+    backgroundColor: "#5856D6",
+  },
+  etaIcon: {
+    marginRight: 4,
   },
   distanceBadgeText: {
     color: "#fff",

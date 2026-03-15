@@ -8,6 +8,7 @@ import { LatLng } from "react-native-maps";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import AddressSearchModal from "../../components/AddressSearchModal";
 import AnimatedButton from "../../components/AnimatedButton";
+import ConfirmModal from "../../components/ConfirmModal";
 import DestinationConfirmationModal from "../../components/DestinationConfirmationModal";
 import FadeInView from "../../components/FadeInView";
 import LoadingSpinner from "../../components/LoadingSpinner";
@@ -54,6 +55,27 @@ const MapScreen: React.FC = () => {
   const [showQuickSelector, setShowQuickSelector] = useState(false);
   const [showAddressSearch, setShowAddressSearch] = useState(false);
   const [shouldFitMarkers, setShouldFitMarkers] = useState(false);
+  const [shouldCenterOnLocation, setShouldCenterOnLocation] = useState(false);
+
+  // Themed info/confirm modal state
+  const [infoModal, setInfoModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    confirmLabel: string;
+    onConfirm: () => void;
+  }>({
+    visible: false,
+    title: "",
+    message: "",
+    confirmLabel: "View Alarm",
+    onConfirm: () => { },
+  });
+
+  const showInfoModal = (title: string, message: string, confirmLabel: string, onConfirm: () => void) => {
+    setInfoModal({ visible: true, title, message, confirmLabel, onConfirm });
+  };
+  const hideInfoModal = () => setInfoModal((m) => ({ ...m, visible: false }));
 
   const initializeLocation = useCallback(async () => {
     try {
@@ -140,6 +162,18 @@ const MapScreen: React.FC = () => {
     }
   };
 
+  const handleLocatePress = () => {
+    if (selectedDestination) {
+      // Fit both current location and destination on screen
+      setShouldFitMarkers(true);
+      setTimeout(() => setShouldFitMarkers(false), 2000);
+    } else {
+      // No destination — just re-centre on current location
+      setShouldCenterOnLocation(true);
+      setTimeout(() => setShouldCenterOnLocation(false), 500);
+    }
+  };
+
   const handleRetryLocation = () => {
     initializeLocation();
   };
@@ -181,47 +215,24 @@ const MapScreen: React.FC = () => {
 
       // Check if this was an existing alarm at the same location
       if (result.isExisting) {
-        Alert.alert(
+        showInfoModal(
           "Alarm Already Exists",
-          result.message || `An alarm is already set for this location.`,
-          [
-            {
-              text: "View Alarm",
-              onPress: () => {
-                router.push("/alarm");
-              },
-            },
-            {
-              text: "OK",
-              style: "cancel",
-            },
-          ],
+          result.message || "An alarm is already set for this location.",
+          "View Alarm",
+          () => { hideInfoModal(); router.push("/alarm"); },
         );
         return;
       }
 
-      // Navigate to alarm screen
-      Alert.alert(
+      showInfoModal(
         "Alarm Created",
-        `Alarm has been set for: ${destination.name} `,
-        [
-          {
-            text: "View Alarm",
-            onPress: () => {
-              router.push("/alarm");
-            },
-          },
-          {
-            text: "OK",
-            style: "cancel",
-          },
-        ],
+        `Alarm has been set for: ${destination.name}`,
+        "View Alarm",
+        () => { hideInfoModal(); router.push("/alarm"); },
       );
     } catch (error) {
       console.error("Error creating alarm:", error);
-      Alert.alert("Error", "Failed to create alarm. Please try again.", [
-        { text: "OK" },
-      ]);
+      showInfoModal("Error", "Failed to create alarm. Please try again.", "OK", hideInfoModal);
     }
   };
 
@@ -259,47 +270,24 @@ const MapScreen: React.FC = () => {
 
       // Check if this was an existing alarm at the same location
       if (result.isExisting) {
-        Alert.alert(
+        showInfoModal(
           "Alarm Already Exists",
-          result.message || `An alarm is already set for this location.`,
-          [
-            {
-              text: "View Alarm",
-              onPress: () => {
-                router.push("/alarm");
-              },
-            },
-            {
-              text: "OK",
-              style: "cancel",
-            },
-          ],
+          result.message || "An alarm is already set for this location.",
+          "View Alarm",
+          () => { hideInfoModal(); router.push("/alarm"); },
         );
         return;
       }
 
-      // Navigate to alarm screen
-      Alert.alert(
+      showInfoModal(
         "Alarm Created",
-        `Alarm has been set for: ${destination.name} `,
-        [
-          {
-            text: "View Alarm",
-            onPress: () => {
-              router.push("/alarm");
-            },
-          },
-          {
-            text: "OK",
-            style: "cancel",
-          },
-        ],
+        `Alarm has been set for: ${destination.name}`,
+        "View Alarm",
+        () => { hideInfoModal(); router.push("/alarm"); },
       );
     } catch (error) {
       console.error("Error creating alarm:", error);
-      Alert.alert("Error", "Failed to create alarm. Please try again.", [
-        { text: "OK" },
-      ]);
+      showInfoModal("Error", "Failed to create alarm. Please try again.", "OK", hideInfoModal);
     }
   };
 
@@ -349,10 +337,10 @@ const MapScreen: React.FC = () => {
         end={{ x: 0, y: 1 }}
         style={styles.headerBar}
       >
-        {/* Left: re-centre to current location */}
+        {/* Left: locate / fit markers */}
         <TouchableOpacity
           style={styles.headerBtn}
-          onPress={initializeLocation}
+          onPress={handleLocatePress}
           disabled={isLoadingLocation}
         >
           <Ionicons name="locate" size={22} color="#FFFFFF" />
@@ -381,6 +369,8 @@ const MapScreen: React.FC = () => {
         onMapPress={handleMapPress}
         onMapReady={handleMapReady}
         shouldFitMarkers={shouldFitMarkers}
+        shouldCenterOnLocation={shouldCenterOnLocation}
+        triggerRadius={userSettings.defaultTriggerRadius}
       />
 
       {/* Loading overlay */}
@@ -446,6 +436,17 @@ const MapScreen: React.FC = () => {
         visible={showAddressSearch}
         onClose={() => setShowAddressSearch(false)}
         onSelectAddress={handleAddressSearchSelect}
+      />
+
+      {/* Themed alarm created / already exists modal */}
+      <ConfirmModal
+        visible={infoModal.visible}
+        title={infoModal.title}
+        message={infoModal.message}
+        confirmLabel={infoModal.confirmLabel}
+        cancelLabel="OK"
+        onConfirm={infoModal.onConfirm}
+        onCancel={hideInfoModal}
       />
     </SafeAreaView>
   );

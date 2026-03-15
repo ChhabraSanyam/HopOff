@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
+import ConfirmModal from "../../components/ConfirmModal";
 import { createAlarm } from "../../store/slices/alarmSlice";
 import {
   deleteDestination,
@@ -42,6 +43,22 @@ const SavedDestinationsScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredDestinations, setFilteredDestinations] = useState<Destination[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Themed modal state
+  const [infoModal, setInfoModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    confirmLabel: string;
+    cancelLabel: string;
+    destructive: boolean;
+    onConfirm: () => void;
+  }>({
+    visible: false, title: "", message: "", confirmLabel: "View Alarm", cancelLabel: "OK", destructive: false, onConfirm: () => { },
+  });
+  const showInfoModal = (title: string, message: string, confirmLabel: string, onConfirm: () => void, cancelLabel: string = "OK", destructive: boolean = false) =>
+    setInfoModal({ visible: true, title, message, confirmLabel, cancelLabel, destructive, onConfirm });
+  const hideInfoModal = () => setInfoModal((m) => ({ ...m, visible: false }));
 
   useEffect(() => {
     const loadDestinations = async () => {
@@ -82,23 +99,20 @@ const SavedDestinationsScreen: React.FC = () => {
   };
 
   const handleDeleteDestination = (destination: Destination) => {
-    Alert.alert(
+    showInfoModal(
       "Delete Destination",
       `Are you sure you want to delete "${destination.name}"?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await dispatch(deleteDestination(destination.id) as any);
-            } catch {
-              Alert.alert("Error", "Failed to delete destination");
-            }
-          },
-        },
-      ],
+      "Delete",
+      async () => {
+        try {
+          await dispatch(deleteDestination(destination.id) as any);
+          hideInfoModal();
+        } catch {
+          showInfoModal("Error", "Failed to delete destination", "OK", hideInfoModal);
+        }
+      },
+      "Cancel",
+      true
     );
   };
 
@@ -115,31 +129,24 @@ const SavedDestinationsScreen: React.FC = () => {
       ).unwrap();
 
       if (result.isExisting) {
-        Alert.alert(
+        showInfoModal(
           "Alarm Already Exists",
           result.message || "An alarm is already set for this location.",
-          [
-            { text: "View Alarm", onPress: () => router.push("/alarm") },
-            { text: "OK", style: "cancel" },
-          ],
+          "View Alarm",
+          () => { hideInfoModal(); router.push("/alarm"); },
         );
         return;
       }
 
-      Alert.alert(
+      showInfoModal(
         "Alarm Created",
         `Alarm has been set for: ${destination.name}`,
-        [
-          { text: "View Alarm", onPress: () => router.push("/alarm") },
-          { text: "OK", style: "cancel" },
-        ],
+        "View Alarm",
+        () => { hideInfoModal(); router.push("/alarm"); },
       );
     } catch (error) {
       console.error("Error creating alarm:", error);
-      Alert.alert(
-        "Error",
-        "Failed to create alarm. Please check your location services and try again.",
-      );
+      showInfoModal("Error", "Failed to create alarm. Please check your location services and try again.", "OK", hideInfoModal);
     }
   };
 
@@ -239,6 +246,18 @@ const SavedDestinationsScreen: React.FC = () => {
           }
         />
       </SafeAreaView>
+
+      {/* Themed alarm modal */}
+      <ConfirmModal
+        visible={infoModal.visible}
+        title={infoModal.title}
+        message={infoModal.message}
+        confirmLabel={infoModal.confirmLabel}
+        cancelLabel={infoModal.cancelLabel}
+        destructive={infoModal.destructive}
+        onConfirm={infoModal.onConfirm}
+        onCancel={hideInfoModal}
+      />
     </LinearGradient>
   );
 };
@@ -283,12 +302,13 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   destinationItem: {
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
     marginHorizontal: 4,
     marginVertical: 5,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.25)",
+    borderColor: "rgba(132, 42, 42, 0.74)",
+    backgroundColor: "rgba(112, 33, 33, 0.25)",
+    overflow: "hidden",
   },
   destinationContent: {
     padding: 16,

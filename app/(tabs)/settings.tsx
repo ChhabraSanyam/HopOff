@@ -2,10 +2,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Linking from "expo-linking";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Platform,
   ScrollView,
   StyleSheet,
@@ -15,6 +16,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import ConfirmModal from "../../components/ConfirmModal";
 import { useAppDispatch, useUserSettings } from "../../store/hooks";
 import {
   clearError,
@@ -67,10 +69,85 @@ const SettingsScreen: React.FC = () => {
     isLoading: boolean;
     error: string | null;
   };
+
+  // Snapshot of the last persisted settings – used to detect unsaved changes
+  const savedSnapshot = React.useRef<UserSettings | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
+  // Animation values for the footer slide-up
+  const footerTranslateY = useRef(new Animated.Value(100)).current;
+  const footerOpacity = useRef(new Animated.Value(0)).current;
+
+  const [modalConfig, setModalConfig] = useState({
+    visible: false, title: "", message: "", confirmLabel: "OK", cancelLabel: "Cancel", destructive: false, onConfirm: () => {},
+  });
+  const showModal = (title: string, message: string, confirmLabel = "OK", cancelLabel = "Cancel", onConfirm = hideModal, destructive = false) => {
+    setModalConfig({ visible: true, title, message, confirmLabel, cancelLabel, onConfirm, destructive });
+  };
+  const hideModal = () => setModalConfig(m => ({ ...m, visible: false }));
+
   useEffect(() => {
-    dispatch(loadSettings());
+    if (hasUnsavedChanges) {
+      Animated.parallel([
+        Animated.spring(footerTranslateY, {
+          toValue: 0,
+          useNativeDriver: true,
+          tension: 60,
+          friction: 10,
+        }),
+        Animated.timing(footerOpacity, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(footerTranslateY, {
+          toValue: 100,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+        Animated.timing(footerOpacity, {
+          toValue: 0,
+          duration: 180,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [hasUnsavedChanges]);
+
+  // Re-derive hasUnsavedChanges whenever the live settings change
+  useEffect(() => {
+    if (savedSnapshot.current === null) return; // not yet loaded
+    const snap = savedSnapshot.current;
+    const changed =
+      settings.defaultTriggerRadius !== snap.defaultTriggerRadius ||
+      settings.vibrationEnabled !== snap.vibrationEnabled ||
+      settings.persistentNotificationEnabled !== snap.persistentNotificationEnabled ||
+      settings.batteryOptimizationEnabled !== snap.batteryOptimizationEnabled;
+    setHasUnsavedChanges(changed);
+  }, [
+    settings.defaultTriggerRadius,
+    settings.vibrationEnabled,
+    settings.persistentNotificationEnabled,
+    settings.batteryOptimizationEnabled,
+  ]);
+
+  useEffect(() => {
+    dispatch(loadSettings()).then((action: any) => {
+      if (action.meta.requestStatus === "fulfilled") {
+        // Snapshot what was just loaded from storage
+        const loaded = action.payload as UserSettings;
+        savedSnapshot.current = {
+          defaultTriggerRadius: loaded.defaultTriggerRadius,
+          vibrationEnabled: loaded.vibrationEnabled,
+          persistentNotificationEnabled: loaded.persistentNotificationEnabled,
+          batteryOptimizationEnabled: loaded.batteryOptimizationEnabled,
+        };
+        setHasUnsavedChanges(false);
+      }
+    });
   }, [dispatch]);
 
   useEffect(() => {
@@ -81,7 +158,6 @@ const SettingsScreen: React.FC = () => {
 
   const handleSettingChange = (key: keyof UserSettings, value: any) => {
     dispatch(updateSettings({ [key]: value }));
-    setHasUnsavedChanges(true);
   };
 
   const handleSaveSettings = async () => {
@@ -93,40 +169,37 @@ const SettingsScreen: React.FC = () => {
     };
     const validation = validateUserSettings(settingsToSave);
     if (!validation.isValid) {
-      Alert.alert("Invalid Settings", validation.errors.join("\n"));
+      showModal("Invalid Settings", validation.errors.join("\n"), "OK", "Close", hideModal);
       return;
     }
     try {
       await dispatch(saveSettings(settingsToSave)).unwrap();
+      // Update snapshot so unsaved indicator clears
+      savedSnapshot.current = { ...settingsToSave };
       setHasUnsavedChanges(false);
-      Alert.alert("Success", "Settings saved successfully");
     } catch (error) {
-      Alert.alert("Error", `Failed to save settings: ${error}`);
+      showModal("Error", `Failed to save settings: ${error}`, "OK", "Close", hideModal);
     }
   };
 
   const handleResetSettings = () => {
-    Alert.alert(
+    showModal(
       "Reset Settings",
       "Are you sure you want to reset all settings to default values?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Reset",
-          style: "destructive",
-          onPress: () => {
-            dispatch(
-              updateSettings({
-                defaultTriggerRadius: 500,
-                vibrationEnabled: true,
-                persistentNotificationEnabled: true,
-                batteryOptimizationEnabled: true,
-              }),
-            );
-            setHasUnsavedChanges(true);
-          },
-        },
-      ],
+      "Reset",
+      "Cancel",
+      () => {
+        dispatch(
+          updateSettings({
+            defaultTriggerRadius: 500,
+            vibrationEnabled: true,
+            persistentNotificationEnabled: true,
+            batteryOptimizationEnabled: true,
+          }),
+        );
+        hideModal();
+      },
+      true
     );
   };
 
@@ -138,10 +211,12 @@ const SettingsScreen: React.FC = () => {
     try {
       await Linking.openSettings();
     } catch {
-      Alert.alert(
+      showModal(
         "Unable to Open Settings",
         "Please go to your device Settings > Apps > HopOff > Notifications to customize notification sounds.",
-        [{ text: "OK" }],
+        "OK",
+        "Cancel",
+        hideModal
       );
     }
   };
@@ -160,7 +235,13 @@ const SettingsScreen: React.FC = () => {
   return (
     <LinearGradient colors={GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={{ flex: 1 }}>
       <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        <ScrollView 
+          style={styles.scrollView} 
+          contentContainerStyle={[
+            styles.scrollContent, 
+            hasUnsavedChanges && { paddingBottom: 160 }
+          ]}
+        >
           {settings.error && (
             <View style={styles.errorContainer}>
               <Text style={styles.errorText}>{settings.error}</Text>
@@ -261,28 +342,41 @@ const SettingsScreen: React.FC = () => {
           </SettingsSection>
         </ScrollView>
 
-        <View style={[styles.footer, { paddingBottom: 68 + insets.bottom + 20 }]}>
-          {hasUnsavedChanges && (
-            <View style={styles.unsavedIndicator}>
-              <Text style={styles.unsavedText}>You have unsaved changes</Text>
-            </View>
-          )}
+        <Animated.View
+          style={[
+            styles.footer,
+            { 
+              bottom: 0,
+              paddingBottom: 68 + insets.bottom + 20 
+            },
+            {
+              opacity: footerOpacity,
+              transform: [{ translateY: footerTranslateY }],
+            },
+          ]}
+          pointerEvents={hasUnsavedChanges ? "auto" : "none"}
+        >
           <View style={styles.buttonContainer}>
             <TouchableOpacity style={[styles.button, styles.resetButton]} onPress={handleResetSettings}>
               <Text style={styles.resetButtonText}>Reset to Defaults</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.button, styles.saveButton, !hasUnsavedChanges && styles.saveButtonDisabled]}
-              onPress={handleSaveSettings}
-              disabled={!hasUnsavedChanges}
-            >
-              <Text style={[styles.saveButtonText, !hasUnsavedChanges && styles.saveButtonTextDisabled]}>
-                Save Settings
-              </Text>
+            <TouchableOpacity style={[styles.button, styles.saveButton]} onPress={handleSaveSettings}>
+              <Text style={styles.saveButtonText}>Save Settings</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </Animated.View>
       </SafeAreaView>
+
+      <ConfirmModal
+        visible={modalConfig.visible}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        confirmLabel={modalConfig.confirmLabel}
+        cancelLabel={modalConfig.cancelLabel}
+        destructive={modalConfig.destructive}
+        onConfirm={modalConfig.onConfirm}
+        onCancel={hideModal}
+      />
     </LinearGradient>
   );
 };
@@ -332,9 +426,9 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   section: {
-    backgroundColor: "rgba(255,255,255,0.10)",
+    backgroundColor: "rgba(112, 33, 33, 0.25)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.18)",
+    borderColor: "rgba(132, 42, 42, 0.74)",
     marginTop: 20,
     marginHorizontal: 16,
     borderRadius: 12,
@@ -419,11 +513,15 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   footer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
     backgroundColor: "rgba(130, 26, 25, 0.95)",
     borderTopWidth: 1,
     borderTopColor: "rgba(255,255,255,0.15)",
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 16,
   },
   unsavedIndicator: {
     backgroundColor: "rgba(255,255,255,0.15)",
@@ -431,7 +529,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 8,
     padding: 8,
-    marginBottom: 12,
+    marginBottom: 0,
     alignItems: "center",
   },
   unsavedText: {
