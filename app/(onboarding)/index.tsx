@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import ConfirmModal from "../../components/ConfirmModal";
 import LoadingSpinner from "../../components/LoadingSpinner";
 import { useAppDispatch } from "../../store/hooks";
 import { requestLocationPermission } from "../../store/slices/locationSlice";
@@ -38,6 +39,7 @@ const OnboardingScreen: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
+  const [showSkipModal, setShowSkipModal] = useState(false);
 
   const handleLocationPermission = async () => {
     try {
@@ -181,14 +183,7 @@ const OnboardingScreen: React.FC = () => {
   };
 
   const handleSkip = () => {
-    Alert.alert(
-      "Skip Onboarding",
-      "Are you sure you want to skip the setup? You can configure permissions later in settings.",
-      [
-        { text: "Continue Setup", style: "cancel" },
-        { text: "Skip", style: "destructive", onPress: handleFinish },
-      ],
-    );
+    setShowSkipModal(true);
   };
 
   const renderStep = (step: OnboardingStep, index: number) => (
@@ -201,11 +196,10 @@ const OnboardingScreen: React.FC = () => {
               style={{ width: 440, height: 540, marginTop: -60, marginBottom: -20 }} 
               resizeMode="contain" 
             />
-            <Image 
-              source={require("../../assets/images/logo.png")} 
-              style={{ width: 500, height: 200, marginBottom: 60 }} 
-              resizeMode="contain" 
-            />
+            <View style={styles.logoContainer}>
+              <Text style={styles.logoText}>Hopoff</Text>
+              <Text style={[styles.logoText, { marginLeft: -8 }]}>!</Text>
+            </View>
           </>
         ) : step.image ? (
           <Image 
@@ -348,6 +342,20 @@ const OnboardingScreen: React.FC = () => {
           />
         </TouchableOpacity>
       </View>
+
+      <ConfirmModal
+        visible={showSkipModal}
+        title="Skip Onboarding"
+        message="Are you sure you want to skip the setup? You can configure permissions later in settings."
+        cancelLabel="Continue Setup"
+        confirmLabel="Skip"
+        destructive={true}
+        onConfirm={() => {
+          setShowSkipModal(false);
+          handleFinish();
+        }}
+        onCancel={() => setShowSkipModal(false)}
+      />
     </SafeAreaView>
   );
 };
@@ -356,6 +364,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#F2E2E2",
+  },
+  logoContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginBottom: 60,
+  },
+  logoText: {
+    fontFamily: "Grobold",
+    fontSize: 64,
+    color: "#b9221d",
   },
   header: {
     flexDirection: "row",

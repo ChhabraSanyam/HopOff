@@ -3,7 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
-import { Alert, Image, StyleSheet, Text, TouchableOpacity } from "react-native";
+import { Alert, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { LatLng } from "react-native-maps";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import AddressSearchModal from "../../components/AddressSearchModal";
@@ -347,11 +347,10 @@ const MapScreen: React.FC = () => {
         </TouchableOpacity>
 
         {/* Centre: logo */}
-        <Image
-          source={require("../../assets/images/logo.png")}
-          style={styles.headerLogo}
-          resizeMode="contain"
-        />
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <Text style={styles.headerLogoText}>Hopoff</Text>
+          <Text style={[styles.headerLogoText, { marginLeft: -4 }]}>!</Text>
+        </View>
 
         {/* Right: search */}
         <TouchableOpacity
@@ -478,9 +477,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  headerLogo: {
-    height: 100,
-    width: 180,
+  headerLogoText: {
+    fontFamily: "Grobold",
+    fontSize: 28,
+    color: "#b9221d",
+    textShadowColor: "rgba(255, 255, 255, 0.8)",
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
   },
   permissionContainer: {
     flex: 1,
