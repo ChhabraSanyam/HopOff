@@ -104,7 +104,6 @@ const settingsSlice = createSlice({
       })
       // Save settings
       .addCase(saveSettings.pending, (state) => {
-        state.isLoading = true;
         state.error = null;
       })
       .addCase(saveSettings.fulfilled, (state, action) => {

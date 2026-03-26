@@ -1,4 +1,5 @@
 // Saved destinations screen for managing favorite locations
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
@@ -14,6 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
+import ConfirmModal from "../../components/ConfirmModal";
 import { createAlarm } from "../../store/slices/alarmSlice";
 import {
   deleteDestination,
@@ -21,6 +23,13 @@ import {
 } from "../../store/slices/destinationSlice";
 import { setSelectedDestination } from "../../store/slices/uiSlice";
 import { AlarmSettings, AppState, Destination } from "../../types";
+
+const BRAND = "#b9221d";
+const GRADIENT: [string, string, string] = [
+  "rgba(195, 65, 55, 0.88)",
+  "rgba(232, 100, 80, 0.50)",
+  "rgba(195, 65, 55, 0.82)",
+];
 
 const SavedDestinationsScreen: React.FC = () => {
   const dispatch = useDispatch();
@@ -32,10 +41,24 @@ const SavedDestinationsScreen: React.FC = () => {
   const userSettings = useSelector((state: AppState) => state.settings);
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [filteredDestinations, setFilteredDestinations] = useState<
-    Destination[]
-  >([]);
+  const [filteredDestinations, setFilteredDestinations] = useState<Destination[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Themed modal state
+  const [infoModal, setInfoModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    confirmLabel: string;
+    cancelLabel: string;
+    destructive: boolean;
+    onConfirm: () => void;
+  }>({
+    visible: false, title: "", message: "", confirmLabel: "View Alarm", cancelLabel: "OK", destructive: false, onConfirm: () => { },
+  });
+  const showInfoModal = (title: string, message: string, confirmLabel: string, onConfirm: () => void, cancelLabel: string = "OK", destructive: boolean = false) =>
+    setInfoModal({ visible: true, title, message, confirmLabel, cancelLabel, destructive, onConfirm });
+  const hideInfoModal = () => setInfoModal((m) => ({ ...m, visible: false }));
 
   useEffect(() => {
     const loadDestinations = async () => {
@@ -45,20 +68,17 @@ const SavedDestinationsScreen: React.FC = () => {
         console.error("Failed to load destinations:", error);
       }
     };
-
     loadDestinations();
   }, [dispatch]);
 
   useEffect(() => {
-    // Filter destinations based on search query
     if (searchQuery.trim() === "") {
       setFilteredDestinations(destinations);
     } else {
       const filtered = destinations.filter(
         (dest) =>
           dest.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (dest.address &&
-            dest.address.toLowerCase().includes(searchQuery.toLowerCase())),
+          (dest.address && dest.address.toLowerCase().includes(searchQuery.toLowerCase())),
       );
       setFilteredDestinations(filtered);
     }
@@ -79,87 +99,54 @@ const SavedDestinationsScreen: React.FC = () => {
   };
 
   const handleDeleteDestination = (destination: Destination) => {
-    Alert.alert(
+    showInfoModal(
       "Delete Destination",
       `Are you sure you want to delete "${destination.name}"?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await dispatch(deleteDestination(destination.id) as any);
-            } catch {
-              Alert.alert("Error", "Failed to delete destination");
-            }
-          },
-        },
-      ],
+      "Delete",
+      async () => {
+        try {
+          await dispatch(deleteDestination(destination.id) as any);
+          hideInfoModal();
+        } catch {
+          showInfoModal("Error", "Failed to delete destination", "OK", hideInfoModal);
+        }
+      },
+      "Cancel",
+      true
     );
   };
 
   const handleSetAlarm = async (destination: Destination) => {
     try {
-      // Set as selected destination
       dispatch(setSelectedDestination(destination));
-
-      // Create alarm settings from user preferences
       const alarmSettings: AlarmSettings = {
         triggerRadius: userSettings.defaultTriggerRadius,
         vibrationEnabled: userSettings.vibrationEnabled,
         persistentNotification: true,
       };
-
-      // Create the alarm
       const result = await dispatch(
         createAlarm({ destination, settings: alarmSettings }) as any,
       ).unwrap();
 
-      // Check if this was an existing alarm at the same location
       if (result.isExisting) {
-        Alert.alert(
+        showInfoModal(
           "Alarm Already Exists",
-          result.message || `An alarm is already set for this location.`,
-          [
-            {
-              text: "View Alarm",
-              onPress: () => {
-                router.push("/alarm");
-              },
-            },
-            {
-              text: "OK",
-              style: "cancel",
-            },
-          ],
+          result.message || "An alarm is already set for this location.",
+          "View Alarm",
+          () => { hideInfoModal(); router.push("/alarm"); },
         );
         return;
       }
 
-      // Navigate to alarm screen
-      Alert.alert(
+      showInfoModal(
         "Alarm Created",
         `Alarm has been set for: ${destination.name}`,
-        [
-          {
-            text: "View Alarm",
-            onPress: () => {
-              router.push("/alarm");
-            },
-          },
-          {
-            text: "OK",
-            style: "cancel",
-          },
-        ],
+        "View Alarm",
+        () => { hideInfoModal(); router.push("/alarm"); },
       );
     } catch (error) {
       console.error("Error creating alarm:", error);
-      Alert.alert(
-        "Error",
-        "Failed to create alarm. Please check your location services and try again.",
-      );
+      showInfoModal("Error", "Failed to create alarm. Please check your location services and try again.", "OK", hideInfoModal);
     }
   };
 
@@ -179,7 +166,6 @@ const SavedDestinationsScreen: React.FC = () => {
             Added: {new Date(item.createdAt).toLocaleDateString()}
           </Text>
         </View>
-
         <View style={styles.destinationActions}>
           <TouchableOpacity
             style={styles.deleteButton}
@@ -208,133 +194,160 @@ const SavedDestinationsScreen: React.FC = () => {
 
   if (isLoading && destinations.length === 0) {
     return (
-      <SafeAreaView
-        style={styles.loadingContainer}
-        edges={["top", "left", "right"]}
-      >
-        <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>Loading destinations...</Text>
-      </SafeAreaView>
+      <LinearGradient colors={GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={{ flex: 1 }}>
+        <SafeAreaView style={styles.loadingContainer} edges={["top", "left", "right"]}>
+          <ActivityIndicator size="large" color="#fff" />
+          <Text style={styles.loadingText}>Loading destinations...</Text>
+        </SafeAreaView>
+      </LinearGradient>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Saved Destinations</Text>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search favourites..."
-          placeholderTextColor="#999"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          clearButtonMode="while-editing"
-        />
-      </View>
-
-      {error && (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={loadDestinations}
-          >
-            <Text style={styles.retryButtonText}>Retry</Text>
-          </TouchableOpacity>
+    <LinearGradient colors={GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={{ flex: 1 }}>
+      <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Saved Destinations</Text>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search favourites..."
+            placeholderTextColor="rgba(255,255,255,0.5)"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            clearButtonMode="while-editing"
+          />
         </View>
-      )}
 
-      <FlatList
-        data={filteredDestinations}
-        keyExtractor={(item) => item.id}
-        renderItem={renderDestinationItem}
-        ListEmptyComponent={renderEmptyState}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-        }
-        contentContainerStyle={
-          filteredDestinations.length === 0 ? styles.emptyContainer : undefined
-        }
+        {error && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity style={styles.retryButton} onPress={loadDestinations}>
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <FlatList
+          data={filteredDestinations}
+          keyExtractor={(item) => item.id}
+          renderItem={renderDestinationItem}
+          ListEmptyComponent={renderEmptyState}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor="#fff"
+              colors={[BRAND]}
+            />
+          }
+          contentContainerStyle={
+            filteredDestinations.length === 0 ? styles.emptyContainer : styles.listContent
+          }
+        />
+      </SafeAreaView>
+
+      {/* Themed alarm modal */}
+      <ConfirmModal
+        visible={infoModal.visible}
+        title={infoModal.title}
+        message={infoModal.message}
+        confirmLabel={infoModal.confirmLabel}
+        cancelLabel={infoModal.cancelLabel}
+        destructive={infoModal.destructive}
+        onConfirm={infoModal.onConfirm}
+        onCancel={hideInfoModal}
       />
-    </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: "rgba(255,255,255,0.8)",
   },
   header: {
-    backgroundColor: "#fff",
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    borderBottomColor: "rgba(255,255,255,0.15)",
   },
   title: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: "bold",
-    color: "#333",
+    color: "#fff",
     marginBottom: 12,
   },
   searchInput: {
-    backgroundColor: "#f8f8f8",
-    borderRadius: 8,
-    padding: 12,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     fontSize: 16,
+    color: "#fff",
     borderWidth: 1,
-    borderColor: "#e0e0e0",
+    borderColor: "rgba(255,255,255,0.25)",
+  },
+  listContent: {
+    padding: 12,
+    paddingBottom: 100,
   },
   destinationItem: {
-    backgroundColor: "#fff",
-    marginHorizontal: 16,
-    marginVertical: 4,
-    borderRadius: 8,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
+    marginHorizontal: 4,
+    marginVertical: 5,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(132, 42, 42, 0.74)",
+    backgroundColor: "rgba(112, 33, 33, 0.25)",
+    overflow: "hidden",
   },
   destinationContent: {
     padding: 16,
-    flexDirection: "column",
   },
   destinationInfo: {
     flex: 1,
     marginBottom: 12,
   },
   destinationName: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "600",
-    color: "#333",
+    color: "#fff",
     marginBottom: 4,
   },
   destinationAddress: {
     fontSize: 14,
-    color: "#666",
+    color: "rgba(255,255,255,0.75)",
     marginBottom: 4,
   },
   destinationDate: {
     fontSize: 12,
-    color: "#999",
+    color: "rgba(255,255,255,0.5)",
   },
   destinationActions: {
     flexDirection: "row",
     justifyContent: "flex-end",
     alignItems: "center",
-    marginTop: 8,
-    fontWeight: "600",
+    marginTop: 4,
   },
   deleteButton: {
-    backgroundColor: "#FF3B30",
-    paddingHorizontal: 12,
+    backgroundColor: BRAND,
+    paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 6,
+    borderRadius: 8,
   },
   deleteButtonText: {
     color: "#fff",
     fontWeight: "600",
+    fontSize: 14,
   },
   emptyState: {
     alignItems: "center",
@@ -344,12 +357,12 @@ const styles = StyleSheet.create({
   emptyStateTitle: {
     fontSize: 20,
     fontWeight: "600",
-    color: "#333",
+    color: "#fff",
     marginBottom: 8,
   },
   emptyStateText: {
     fontSize: 16,
-    color: "#666",
+    color: "rgba(255,255,255,0.65)",
     textAlign: "center",
     lineHeight: 22,
   },
@@ -357,35 +370,26 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: "center",
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#f5f5f5",
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: "#666",
-  },
   errorContainer: {
-    backgroundColor: "#FFE6E6",
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255,100,100,0.4)",
     margin: 16,
     padding: 12,
-    borderRadius: 8,
+    borderRadius: 10,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
   errorText: {
-    color: "#D32F2F",
+    color: "rgba(255,200,200,0.9)",
     flex: 1,
   },
   retryButton: {
-    backgroundColor: "#D32F2F",
+    backgroundColor: BRAND,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 4,
+    borderRadius: 6,
   },
   retryButtonText: {
     color: "#fff",

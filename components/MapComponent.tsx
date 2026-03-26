@@ -1,7 +1,7 @@
 // Map component wrapper for React Native Maps
 import React, { useEffect, useRef } from "react";
 import { StyleSheet } from "react-native";
-import MapView, { LatLng, Marker, Region } from "react-native-maps";
+import MapView, { Circle, LatLng, Marker, Region } from "react-native-maps";
 import { useAppDispatch } from "../store/hooks";
 import { setMapReady, setMapRegion } from "../store/slices/uiSlice";
 import { Coordinate, Destination } from "../types";
@@ -13,6 +13,8 @@ interface MapComponentProps {
   onMapPress: (coordinate: LatLng) => void;
   onMapReady: () => void;
   shouldFitMarkers?: boolean;
+  shouldCenterOnLocation?: boolean;
+  triggerRadius?: number; // in metres
 }
 
 const MapComponent: React.FC<MapComponentProps> = ({
@@ -22,6 +24,8 @@ const MapComponent: React.FC<MapComponentProps> = ({
   onMapPress,
   onMapReady,
   shouldFitMarkers = false,
+  shouldCenterOnLocation = false,
+  triggerRadius = 500,
 }) => {
   const mapRef = useRef<MapView>(null);
   const dispatch = useAppDispatch();
@@ -39,11 +43,11 @@ const MapComponent: React.FC<MapComponentProps> = ({
   // Calculate initial region based on current location or use default
   const initialRegion: Region = currentLocation
     ? {
-        latitude: currentLocation.latitude,
-        longitude: currentLocation.longitude,
-        latitudeDelta: 0.0922,
-        longitudeDelta: 0.0421,
-      }
+      latitude: currentLocation.latitude,
+      longitude: currentLocation.longitude,
+      latitudeDelta: 0.0922,
+      longitudeDelta: 0.0421,
+    }
     : mapRegion || defaultRegion;
 
   const handleMapPress = (event: { nativeEvent: { coordinate: LatLng } }) => {
@@ -78,6 +82,19 @@ const MapComponent: React.FC<MapComponentProps> = ({
       initialLocationSet.current = true;
     }
   }, [currentLocation, shouldFitMarkers]);
+
+  // Re-centre on current location when locate button is pressed (no destination selected)
+  useEffect(() => {
+    if (shouldCenterOnLocation && currentLocation && mapRef.current) {
+      const region: Region = {
+        latitude: currentLocation.latitude,
+        longitude: currentLocation.longitude,
+        latitudeDelta: 0.0922,
+        longitudeDelta: 0.0421,
+      };
+      mapRef.current.animateToRegion(region, 800);
+    }
+  }, [shouldCenterOnLocation]);
 
   // Fit both markers when destination is selected and shouldFitMarkers is true
   useEffect(() => {
@@ -143,7 +160,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
       onMapReady={handleMapReady}
       onRegionChangeComplete={handleRegionChangeComplete}
       showsUserLocation={true}
-      showsMyLocationButton={true}
+      showsMyLocationButton={false}
       showsCompass={true}
       showsScale={true}
       mapType="standard"
@@ -163,15 +180,26 @@ const MapComponent: React.FC<MapComponentProps> = ({
         />
       )}
 
-      {/* Selected destination marker */}
+      {/* Selected destination marker + trigger-radius circle */}
       {selectedDestination && (
-        <Marker
-          coordinate={selectedDestination.coordinate}
-          title={selectedDestination.name}
-          description={selectedDestination.address || "Selected destination"}
-          pinColor="red"
-          identifier="selected-destination"
-        />
+        <>
+          <Marker
+            coordinate={selectedDestination.coordinate}
+            title={selectedDestination.name}
+            description={selectedDestination.address || "Selected destination"}
+            pinColor="red"
+            identifier="selected-destination"
+            anchor={{ x: 0.5, y: 0.5 }}
+            calloutAnchor={{ x: 0.5, y: 0 }}
+          />
+          <Circle
+            center={selectedDestination.coordinate}
+            radius={triggerRadius}
+            strokeWidth={2}
+            strokeColor="rgba(240, 169, 166, 0.9)"
+            fillColor="rgba(185, 34, 29, 0.15)"
+          />
+        </>
       )}
     </MapView>
   );

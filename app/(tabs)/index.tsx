@@ -1,11 +1,14 @@
 // Main map screen for destination selection and alarm management
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
-import { Alert, StyleSheet, Text, View } from "react-native";
+import { Alert, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { LatLng } from "react-native-maps";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import AddressSearchModal from "../../components/AddressSearchModal";
 import AnimatedButton from "../../components/AnimatedButton";
+import ConfirmModal from "../../components/ConfirmModal";
 import DestinationConfirmationModal from "../../components/DestinationConfirmationModal";
 import FadeInView from "../../components/FadeInView";
 import LoadingSpinner from "../../components/LoadingSpinner";
@@ -31,6 +34,7 @@ import { setSelectedDestination } from "../../store/slices/uiSlice";
 import { AlarmSettings, Coordinate, Destination } from "../../types";
 
 const MapScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
   const dispatch = useAppDispatch();
   const currentLocation = useCurrentLocation();
   const locationPermission = useLocationPermission();
@@ -51,6 +55,27 @@ const MapScreen: React.FC = () => {
   const [showQuickSelector, setShowQuickSelector] = useState(false);
   const [showAddressSearch, setShowAddressSearch] = useState(false);
   const [shouldFitMarkers, setShouldFitMarkers] = useState(false);
+  const [shouldCenterOnLocation, setShouldCenterOnLocation] = useState(false);
+
+  // Themed info/confirm modal state
+  const [infoModal, setInfoModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    confirmLabel: string;
+    onConfirm: () => void;
+  }>({
+    visible: false,
+    title: "",
+    message: "",
+    confirmLabel: "View Alarm",
+    onConfirm: () => { },
+  });
+
+  const showInfoModal = (title: string, message: string, confirmLabel: string, onConfirm: () => void) => {
+    setInfoModal({ visible: true, title, message, confirmLabel, onConfirm });
+  };
+  const hideInfoModal = () => setInfoModal((m) => ({ ...m, visible: false }));
 
   const initializeLocation = useCallback(async () => {
     try {
@@ -137,6 +162,18 @@ const MapScreen: React.FC = () => {
     }
   };
 
+  const handleLocatePress = () => {
+    if (selectedDestination) {
+      // Fit both current location and destination on screen
+      setShouldFitMarkers(true);
+      setTimeout(() => setShouldFitMarkers(false), 2000);
+    } else {
+      // No destination — just re-centre on current location
+      setShouldCenterOnLocation(true);
+      setTimeout(() => setShouldCenterOnLocation(false), 500);
+    }
+  };
+
   const handleRetryLocation = () => {
     initializeLocation();
   };
@@ -178,47 +215,24 @@ const MapScreen: React.FC = () => {
 
       // Check if this was an existing alarm at the same location
       if (result.isExisting) {
-        Alert.alert(
+        showInfoModal(
           "Alarm Already Exists",
-          result.message || `An alarm is already set for this location.`,
-          [
-            {
-              text: "View Alarm",
-              onPress: () => {
-                router.push("/alarm");
-              },
-            },
-            {
-              text: "OK",
-              style: "cancel",
-            },
-          ],
+          result.message || "An alarm is already set for this location.",
+          "View Alarm",
+          () => { hideInfoModal(); router.push("/alarm"); },
         );
         return;
       }
 
-      // Navigate to alarm screen
-      Alert.alert(
+      showInfoModal(
         "Alarm Created",
         `Alarm has been set for: ${destination.name}`,
-        [
-          {
-            text: "View Alarm",
-            onPress: () => {
-              router.push("/alarm");
-            },
-          },
-          {
-            text: "OK",
-            style: "cancel",
-          },
-        ],
+        "View Alarm",
+        () => { hideInfoModal(); router.push("/alarm"); },
       );
     } catch (error) {
       console.error("Error creating alarm:", error);
-      Alert.alert("Error", "Failed to create alarm. Please try again.", [
-        { text: "OK" },
-      ]);
+      showInfoModal("Error", "Failed to create alarm. Please try again.", "OK", hideInfoModal);
     }
   };
 
@@ -256,47 +270,24 @@ const MapScreen: React.FC = () => {
 
       // Check if this was an existing alarm at the same location
       if (result.isExisting) {
-        Alert.alert(
+        showInfoModal(
           "Alarm Already Exists",
-          result.message || `An alarm is already set for this location.`,
-          [
-            {
-              text: "View Alarm",
-              onPress: () => {
-                router.push("/alarm");
-              },
-            },
-            {
-              text: "OK",
-              style: "cancel",
-            },
-          ],
+          result.message || "An alarm is already set for this location.",
+          "View Alarm",
+          () => { hideInfoModal(); router.push("/alarm"); },
         );
         return;
       }
 
-      // Navigate to alarm screen
-      Alert.alert(
+      showInfoModal(
         "Alarm Created",
         `Alarm has been set for: ${destination.name}`,
-        [
-          {
-            text: "View Alarm",
-            onPress: () => {
-              router.push("/alarm");
-            },
-          },
-          {
-            text: "OK",
-            style: "cancel",
-          },
-        ],
+        "View Alarm",
+        () => { hideInfoModal(); router.push("/alarm"); },
       );
     } catch (error) {
       console.error("Error creating alarm:", error);
-      Alert.alert("Error", "Failed to create alarm. Please try again.", [
-        { text: "OK" },
-      ]);
+      showInfoModal("Error", "Failed to create alarm. Please try again.", "OK", hideInfoModal);
     }
   };
 
@@ -339,6 +330,37 @@ const MapScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+      {/* ── Header bar (overlaid on map) ── */}
+      <LinearGradient
+        colors={["rgba(232, 47, 45, 0.48)", "rgba(255,255,255,0)"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={styles.headerBar}
+      >
+        {/* Left: locate / fit markers */}
+        <TouchableOpacity
+          style={styles.headerBtn}
+          onPress={handleLocatePress}
+          disabled={isLoadingLocation}
+        >
+          <Ionicons name="locate" size={22} color="#FFFFFF" />
+        </TouchableOpacity>
+
+        {/* Centre: logo */}
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <Text style={styles.headerLogoText}>Hopoff</Text>
+          <Text style={[styles.headerLogoText, { marginLeft: -4 }]}>!</Text>
+        </View>
+
+        {/* Right: search */}
+        <TouchableOpacity
+          style={styles.headerBtn}
+          onPress={() => setShowAddressSearch(true)}
+        >
+          <Ionicons name="search" size={22} color="#FFFFFF" />
+        </TouchableOpacity>
+      </LinearGradient>
+
       <MapComponent
         currentLocation={currentLocation}
         selectedDestination={selectedDestination}
@@ -346,6 +368,8 @@ const MapScreen: React.FC = () => {
         onMapPress={handleMapPress}
         onMapReady={handleMapReady}
         shouldFitMarkers={shouldFitMarkers}
+        shouldCenterOnLocation={shouldCenterOnLocation}
+        triggerRadius={userSettings.defaultTriggerRadius}
       />
 
       {/* Loading overlay */}
@@ -370,7 +394,10 @@ const MapScreen: React.FC = () => {
 
       {/* Selected destination info */}
       {selectedDestination && (
-        <SlideInView direction="up" style={styles.destinationInfo}>
+        <SlideInView
+          direction="up"
+          style={{ ...styles.destinationInfo, bottom: 60 + insets.bottom + 35 }}
+        >
           <Text style={styles.destinationTitle}>
             {selectedDestination.name}
           </Text>
@@ -384,29 +411,6 @@ const MapScreen: React.FC = () => {
             size="small"
           />
         </SlideInView>
-      )}
-
-      {/* Instructions and Action Buttons */}
-      {!selectedDestination && !isLoadingLocation && !locationError && (
-        <FadeInView delay={500} style={styles.instructionsContainer}>
-          <Text style={styles.instructionsText}>
-            Tap on the map to select your destination
-          </Text>
-          <View style={styles.actionButtonsContainer}>
-            <AnimatedButton
-              title="Search Address"
-              onPress={() => setShowAddressSearch(true)}
-              size="small"
-              style={styles.actionButton}
-            />
-            <AnimatedButton
-              title="Quick Select"
-              onPress={() => setShowQuickSelector(true)}
-              size="small"
-              style={styles.actionButton}
-            />
-          </View>
-        </FadeInView>
       )}
 
       {/* Destination Confirmation Modal */}
@@ -432,6 +436,17 @@ const MapScreen: React.FC = () => {
         onClose={() => setShowAddressSearch(false)}
         onSelectAddress={handleAddressSearchSelect}
       />
+
+      {/* Themed alarm created / already exists modal */}
+      <ConfirmModal
+        visible={infoModal.visible}
+        title={infoModal.title}
+        message={infoModal.message}
+        confirmLabel={infoModal.confirmLabel}
+        cancelLabel="OK"
+        onConfirm={infoModal.onConfirm}
+        onCancel={hideInfoModal}
+      />
     </SafeAreaView>
   );
 };
@@ -439,6 +454,36 @@ const MapScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  /* ── Header ── */
+  headerBar: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    height: 160,
+    paddingHorizontal: 12,
+    paddingTop: 10,
+  },
+  headerBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#b9221dff",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  headerLogoText: {
+    fontFamily: "Grobold",
+    fontSize: 28,
+    color: "#b9221d",
+    textShadowColor: "rgba(255, 255, 255, 0.8)",
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
   },
   permissionContainer: {
     flex: 1,
@@ -497,7 +542,7 @@ const styles = StyleSheet.create({
 
   destinationInfo: {
     position: "absolute",
-    bottom: 20,
+    bottom: 20, // overridden inline with dynamic inset
     left: 20,
     right: 20,
     backgroundColor: "white",
@@ -527,15 +572,15 @@ const styles = StyleSheet.create({
   instructionsContainer: {
     position: "absolute",
     top: 50,
-    left: 20,
-    right: 20,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
-    padding: 12,
-    borderRadius: 8,
+    alignSelf: "center",
+    backgroundColor: "rgba(251, 138, 138, 0.5)",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
     alignItems: "center",
   },
   instructionsText: {
-    color: "white",
+    color: "#982C2C",
     fontSize: 14,
     textAlign: "center",
     marginBottom: 8,
@@ -547,6 +592,7 @@ const styles = StyleSheet.create({
   actionButton: {
     flex: 1,
     marginHorizontal: 4,
+    backgroundColor: "#982C2C",
   },
 });
 
