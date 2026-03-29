@@ -2,7 +2,6 @@
 
 **HopOff!** is a cross-platform mobile application, which provides customizable location-based alerts designed to help public transport commuters (with a focus on Delhi Metro passengers) avoid missing their stops by triggering alarms(notifications, sound, and haptics) when they approach their destination.
 
-
 ## Features
 
 - **Offline First**: Works fully offline after a location is saved. Uses local SQLite for metro route data and search history.
@@ -11,26 +10,29 @@
 - **Hybrid Location Monitoring**: Combines native OS-level geofencing with background distance polling to ensure high reliability even in high-speed transit environments.
 - **Adaptive Battery Optimization**: Dynamic polling frequency that adjusts based on distance to minimize battery drain when far from the destination.
 - **Delhi Metro Integration**: Specialized offline support for the Delhi Metro system, including automatic detection and alarm configuration for interchange stops.
-- **GPS-Denied Fallback**: Predictive alert mechanism using last known speed and ETA for underground/tunnel segments (Currently under refinement).
-
+- **GPS-Denied Fallback**: Predictive alert mechanism using last known speed and ETA for underground/tunnel segments.
 
 ## Technical Implementation
 
 ### 1. Hybrid Monitoring Model
+
 Standard geofencing can sometimes fail in high-speed environments like Metro. HopOff! solves this by implementing a hybrid model:
+
 - **OS Geofencing**: Low-power monitoring for broad arrival detection.
 - **Background Polling**: Uses the **Haversine Formula** to calculate great-circle distances in a background task, providing precise UI updates and triggering alerts if geofencing is missed.
 
 ### 2. Battery & Performance Optimization
+
 - **Adaptive Polling**: The application adjusts the location check frequency based on the remaining distance to the destination (higher frequency when near, lower when far).
 - **Foreground Services**: Uses Android Foreground Services to ensure the background task remains active even when the app is closed or the screen is off.
 
 ### Offline-First Architecture
-HopOff! is designed to be functional in data-poor environments:
--   **SQLite**: Stores the entire Delhi Metro station network and interchange logic.
--   **Search History**: Previous destinations are cached for one-tap access.
--   **Geocoding**: Required only during the initial search; all subsequent monitoring logic is local.
 
+HopOff! is designed to be functional in data-poor environments:
+
+- **SQLite**: Stores the entire Delhi Metro station network and interchange logic.
+- **Search History**: Previous destinations are cached for one-tap access.
+- **Geocoding**: Required only during the initial search; all subsequent monitoring logic is local.
 
 ## Tech Stack
 
@@ -42,7 +44,6 @@ HopOff! is designed to be functional in data-poor environments:
 - **Persistence**: Expo SQLite, AsyncStorage
 - **Notifications**: Expo Notifications
 - **Task Management**: Expo Task Manager
-
 
 ## Project Structure
 
@@ -60,6 +61,6 @@ HopOff! is designed to be functional in data-poor environments:
 └── assets/               # Static assets (images, icons, fonts)
 ```
 
-
 ## 📄 License
+
 This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.

@@ -36,11 +36,13 @@ export function calculateDistance(from: Coordinate, to: Coordinate): number {
 }
 
 /**
- * Generate a unique ID
+ * Generate a unique ID with an optional prefix
+ * @param prefix Optional prefix string (e.g. "alarm", "dest", "search")
  * @returns Unique string ID
  */
-export function generateId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
+export function generateId(prefix?: string): string {
+  const id = Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+  return prefix ? `${prefix}_${id}` : id;
 }
 
 /**
@@ -257,60 +259,6 @@ export function validateUserSettings(
 // COORDINATE OPERATIONS
 
 /**
- * Calculate the bearing (direction) from one coordinate to another
- * @param from Starting coordinate
- * @param to Ending coordinate
- * @returns Bearing in degrees (0-360)
- */
-export function calculateBearing(from: Coordinate, to: Coordinate): number {
-  const φ1 = (from.latitude * Math.PI) / 180;
-  const φ2 = (to.latitude * Math.PI) / 180;
-  const Δλ = ((to.longitude - from.longitude) * Math.PI) / 180;
-
-  const y = Math.sin(Δλ) * Math.cos(φ2);
-  const x =
-    Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
-
-  const θ = Math.atan2(y, x);
-  return ((θ * 180) / Math.PI + 360) % 360;
-}
-
-/**
- * Calculate a destination coordinate given a starting point, bearing, and distance
- * @param from Starting coordinate
- * @param bearing Bearing in degrees
- * @param distance Distance in meters
- * @returns Destination coordinate
- */
-export function calculateDestinationCoordinate(
-  from: Coordinate,
-  bearing: number,
-  distance: number,
-): Coordinate {
-  const R = 6371e3; // Earth's radius in meters
-  const φ1 = (from.latitude * Math.PI) / 180;
-  const λ1 = (from.longitude * Math.PI) / 180;
-  const θ = (bearing * Math.PI) / 180;
-
-  const φ2 = Math.asin(
-    Math.sin(φ1) * Math.cos(distance / R) +
-      Math.cos(φ1) * Math.sin(distance / R) * Math.cos(θ),
-  );
-
-  const λ2 =
-    λ1 +
-    Math.atan2(
-      Math.sin(θ) * Math.sin(distance / R) * Math.cos(φ1),
-      Math.cos(distance / R) - Math.sin(φ1) * Math.sin(φ2),
-    );
-
-  return {
-    latitude: (φ2 * 180) / Math.PI,
-    longitude: (((λ2 * 180) / Math.PI + 540) % 360) - 180, // normalize to [-180, 180]
-  };
-}
-
-/**
  * Check if a coordinate is within a circular area
  * @param point Point to check
  * @param center Center of the circular area
@@ -326,68 +274,7 @@ export function isWithinRadius(
   return distance <= radius;
 }
 
-/**
- * Calculate the midpoint between two coordinates
- * @param coord1 First coordinate
- * @param coord2 Second coordinate
- * @returns Midpoint coordinate
- */
-export function calculateMidpoint(
-  coord1: Coordinate,
-  coord2: Coordinate,
-): Coordinate {
-  const φ1 = (coord1.latitude * Math.PI) / 180;
-  const φ2 = (coord2.latitude * Math.PI) / 180;
-  const Δλ = ((coord2.longitude - coord1.longitude) * Math.PI) / 180;
-  const λ1 = (coord1.longitude * Math.PI) / 180;
-
-  const Bx = Math.cos(φ2) * Math.cos(Δλ);
-  const By = Math.cos(φ2) * Math.sin(Δλ);
-
-  const φ3 = Math.atan2(
-    Math.sin(φ1) + Math.sin(φ2),
-    Math.sqrt((Math.cos(φ1) + Bx) * (Math.cos(φ1) + Bx) + By * By),
-  );
-  const λ3 = λ1 + Math.atan2(By, Math.cos(φ1) + Bx);
-
-  return {
-    latitude: (φ3 * 180) / Math.PI,
-    longitude: (((λ3 * 180) / Math.PI + 540) % 360) - 180,
-  };
-}
-
-/**
- * Normalize coordinate values to ensure they're within valid ranges
- * @param coordinate Coordinate to normalize
- * @returns Normalized coordinate
- */
-export function normalizeCoordinate(coordinate: Coordinate): Coordinate {
-  let { latitude, longitude } = coordinate;
-
-  // Normalize latitude to [-90, 90]
-  latitude = Math.max(
-    VALIDATION_CONSTANTS.MIN_LATITUDE,
-    Math.min(VALIDATION_CONSTANTS.MAX_LATITUDE, latitude),
-  );
-
-  // Normalize longitude to [-180, 180]
-  longitude = ((longitude + 540) % 360) - 180;
-
-  return { latitude, longitude };
-}
 // DATA CREATION AND SANITIZATION
-
-/**
- * Create default alarm settings
- * @returns Default AlarmSettings object
- */
-export function createDefaultAlarmSettings(): AlarmSettings {
-  return {
-    triggerRadius: 200,
-    vibrationEnabled: true,
-    persistentNotification: true,
-  };
-}
 
 /**
  * Create default user settings
@@ -433,17 +320,6 @@ export function sanitizeAddress(address: string): string {
 }
 
 /**
- * Clamp a number between min and max values
- * @param value Value to clamp
- * @param min Minimum value
- * @param max Maximum value
- * @returns Clamped value
- */
-export function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max);
-}
-
-/**
  * Get the nearest valid trigger radius from available options
  * @param radius Desired radius
  * @returns Nearest valid trigger radius
@@ -458,17 +334,6 @@ export function getNearestValidTriggerRadius(radius: number): number {
 // FORMATTING UTILITIES
 
 /**
- * Format bearing for display
- * @param bearing Bearing in degrees
- * @returns Formatted bearing string with cardinal direction
- */
-export function formatBearing(bearing: number): string {
-  const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
-  const index = Math.round(bearing / 45) % 8;
-  return `${Math.round(bearing)}° ${directions[index]}`;
-}
-
-/**
  * Format coordinate for display
  * @param coordinate Coordinate to format
  * @param precision Number of decimal places (default: 6)
@@ -481,23 +346,4 @@ export function formatCoordinate(
   return `${coordinate.latitude.toFixed(
     precision,
   )}, ${coordinate.longitude.toFixed(precision)}`;
-}
-
-/**
- * Format time duration in a human-readable format
- * @param milliseconds Duration in milliseconds
- * @returns Formatted duration string
- */
-export function formatDuration(milliseconds: number): string {
-  const seconds = Math.floor(milliseconds / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-
-  if (hours > 0) {
-    return `${hours}h ${minutes % 60}m`;
-  } else if (minutes > 0) {
-    return `${minutes}m ${seconds % 60}s`;
-  } else {
-    return `${seconds}s`;
-  }
 }

@@ -8,6 +8,7 @@ import {
   DestinationState,
   SearchHistoryItem,
 } from "../../types";
+import { generateId } from "../../utils";
 
 const initialState: DestinationState = {
   saved: [],
@@ -30,7 +31,7 @@ export const saveDestination = createAsyncThunk(
   async (destination: Omit<Destination, "id" | "createdAt">) => {
     const savedDestination: Destination = {
       ...destination,
-      id: `dest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: generateId("dest"),
       createdAt: new Date().toISOString(),
     };
 

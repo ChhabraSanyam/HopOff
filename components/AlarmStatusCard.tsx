@@ -47,10 +47,10 @@ const AlarmStatusCard: React.FC<AlarmStatusCardProps> = ({
     const metroSpeedMps = 11;
     const timeInSeconds = distance / metroSpeedMps;
     if (timeInSeconds < 60) return `${Math.round(timeInSeconds)} sec`;
-    
+
     const totalMinutes = Math.round(timeInSeconds / 60);
     if (totalMinutes < 60) return `${totalMinutes} min`;
-    
+
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
     return minutes > 0 ? `${hours} hr ${minutes} min` : `${hours} hr`;
@@ -88,22 +88,30 @@ const AlarmStatusCard: React.FC<AlarmStatusCardProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Red cancel circle — top right */}
-      <TouchableOpacity style={styles.cancelCircle} onPress={onCancel} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-        <Ionicons name="close" size={16} color="#fff" />
-      </TouchableOpacity>
+      {/* Status Header + cancel */}
+      <View style={styles.topRow}>
+        <View style={styles.statusHeader}>
+          <View
+            style={[
+              styles.statusIndicator,
+              { backgroundColor: getStatusColor() },
+            ]}
+          />
+          <Text style={[styles.statusText, { color: getStatusColor() }]}>
+            {getStatusText()}
+          </Text>
+        </View>
 
-      {/* Status Header */}
-      <View style={styles.statusHeader}>
-        <View
-          style={[
-            styles.statusIndicator,
-            { backgroundColor: getStatusColor() },
-          ]}
-        />
-        <Text style={[styles.statusText, { color: getStatusColor() }]}>
-          {getStatusText()}
-        </Text>
+        <TouchableOpacity
+          style={styles.cancelCircle}
+          onPress={onCancel}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
+          accessibilityLabel="Cancel alarm"
+          accessibilityHint="Closes the alarm status card"
+        >
+          <Ionicons name="close" size={16} color="#fff" />
+        </TouchableOpacity>
       </View>
 
       {/* Destination Information */}
@@ -159,10 +167,13 @@ const AlarmStatusCard: React.FC<AlarmStatusCardProps> = ({
             </Text>
           </View>
           <View style={[styles.distanceBadge, styles.etaBadge]}>
-            <Ionicons name="time" size={14} color="#fff" style={styles.etaIcon} />
-            <Text style={styles.distanceBadgeText}>
-              ~{getEtaText()}
-            </Text>
+            <Ionicons
+              name="time"
+              size={14}
+              color="#fff"
+              style={styles.etaIcon}
+            />
+            <Text style={styles.distanceBadgeText}>~{getEtaText()}</Text>
           </View>
         </View>
       )}
@@ -174,7 +185,9 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: "#fff",
     borderRadius: 12,
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    paddingTop: 16,
     marginBottom: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -182,10 +195,16 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
   statusHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
+    flex: 1,
   },
   statusIndicator: {
     width: 12,
@@ -250,16 +269,12 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   cancelCircle: {
-    position: "absolute",
-    top: 12,
-    right: 12,
     width: 28,
     height: 28,
     borderRadius: 14,
     backgroundColor: "#FF3B30",
     alignItems: "center",
     justifyContent: "center",
-    zIndex: 10,
   },
   badgesContainer: {
     flexDirection: "row",

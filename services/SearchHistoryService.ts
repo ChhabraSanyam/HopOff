@@ -5,6 +5,7 @@ import {
   NominatimResult,
   SearchHistoryItem,
 } from "../types";
+import { generateId } from "../utils";
 
 export interface SearchHistoryService {
   addSearchToHistory(query: string, result: AddressSearchResult): Promise<void>;
@@ -34,7 +35,7 @@ export class SearchHistoryServiceImpl implements SearchHistoryService {
 
       // Create new history item
       const newItem: SearchHistoryItem = {
-        id: `search_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        id: generateId("search"),
         query: query.trim(),
         result: this.convertToNominatimResult(result),
         timestamp: new Date().toISOString(),

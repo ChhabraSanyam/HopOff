@@ -1,46 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Tabs } from "expo-router";
-import React, { useEffect, useRef } from "react";
-import { Animated, Easing, Pressable, StyleSheet, View } from "react-native";
+import React from "react";
+import { Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const BRAND = "#b9221d";
 
-/** Animated glow ring: one-shot burst on press, then static */
-function GlowRing({ focused }: { focused: boolean }) {
-  const scale = useRef(new Animated.Value(0.8)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (focused) {
-      // Burst out, then settle to a static glow — no loop
-      Animated.sequence([
-        Animated.parallel([
-          Animated.timing(scale, { toValue: 1.5, duration: 300, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-          Animated.timing(opacity, { toValue: 1.0, duration: 200, useNativeDriver: true }),
-        ]),
-        Animated.parallel([
-          Animated.timing(scale, { toValue: 1.05, duration: 400, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-          Animated.timing(opacity, { toValue: 0.42, duration: 400, useNativeDriver: true }),
-        ]),
-      ]).start();
-    } else {
-      Animated.parallel([
-        Animated.timing(scale, { toValue: 0.8, duration: 200, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0, duration: 200, useNativeDriver: true }),
-      ]).start();
-    }
-  }, [focused]);
-
-  return (
-    <Animated.View
-      style={[styles.glowRing, { opacity, transform: [{ scale }] }]}
-    />
-  );
-}
-
-/** Tab icon with animated glow halo */
+/** Tab icon with glow halo */
 function TabIcon({
   name,
   focused,
@@ -50,7 +17,7 @@ function TabIcon({
 }) {
   return (
     <View style={styles.section}>
-      <GlowRing focused={focused} />
+      {focused ? <View style={styles.glowRing} /> : null}
       <View style={[styles.iconCircle, focused && styles.iconCircleFocused]}>
         <Ionicons name={name} size={22} color={focused ? "#fff" : BRAND} />
       </View>
@@ -60,7 +27,7 @@ function TabIcon({
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
-  const extraPad = 8;
+  const extraPad = 14;
 
   return (
     <Tabs
@@ -72,14 +39,21 @@ export default function TabLayout() {
           borderTopWidth: 0,
           elevation: 0,
           paddingBottom: insets.bottom + extraPad,
-          paddingTop: 8,
+          paddingTop: 14,
           height: 68 + insets.bottom + extraPad,
           position: "absolute",
         },
-        tabBarBackground: () => <View style={styles.iconRow} />,
+        tabBarBackground: () => (
+          <View
+            style={[
+              styles.iconRow,
+              { height: 68, bottom: insets.bottom + extraPad },
+            ]}
+          />
+        ),
         headerShown: false,
         tabBarShowLabel: false,
-        tabBarButton: ({ ref, ...props }) => (
+        tabBarButton: ({ ref: _ref, ...props }) => (
           <Pressable
             {...props}
             onPress={(e) => {
@@ -104,7 +78,10 @@ export default function TabLayout() {
         options={{
           title: "Alarm",
           tabBarIcon: ({ focused }) => (
-            <TabIcon name={focused ? "alarm" : "alarm-outline"} focused={focused} />
+            <TabIcon
+              name={focused ? "alarm" : "alarm-outline"}
+              focused={focused}
+            />
           ),
         }}
       />
@@ -113,7 +90,10 @@ export default function TabLayout() {
         options={{
           title: "Saved",
           tabBarIcon: ({ focused }) => (
-            <TabIcon name={focused ? "bookmark" : "bookmark-outline"} focused={focused} />
+            <TabIcon
+              name={focused ? "bookmark" : "bookmark-outline"}
+              focused={focused}
+            />
           ),
         }}
       />
@@ -122,7 +102,10 @@ export default function TabLayout() {
         options={{
           title: "Settings",
           tabBarIcon: ({ focused }) => (
-            <TabIcon name={focused ? "settings" : "settings-outline"} focused={focused} />
+            <TabIcon
+              name={focused ? "settings" : "settings-outline"}
+              focused={focused}
+            />
           ),
         }}
       />
@@ -133,8 +116,6 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   iconRow: {
     position: "absolute",
-    top: -3,
-    bottom: 39,
     left: 20,
     right: 20,
     borderRadius: 29,

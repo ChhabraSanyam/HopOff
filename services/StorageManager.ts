@@ -2,7 +2,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Destination, UserSettings, VALIDATION_CONSTANTS } from "../types";
 import { databaseManager } from "./DatabaseManager";
-import { nominatimService } from "./NominatimService";
 
 export interface StorageManager {
   saveDestination(destination: Destination): Promise<string>;
@@ -10,7 +9,6 @@ export interface StorageManager {
   deleteDestination(id: string): Promise<void>;
   saveSettings(settings: UserSettings): Promise<void>;
   getSettings(): Promise<UserSettings>;
-  enrichDestinationWithAddress(destination: Destination): Promise<Destination>;
 }
 
 const SETTINGS_KEY = "user_settings";
@@ -121,44 +119,6 @@ export class StorageManagerImpl implements StorageManager {
     }
 
     return validated;
-  }
-
-  /**
-   * Enrich destination with address information using reverse geocoding
-   */
-  async enrichDestinationWithAddress(
-    destination: Destination,
-  ): Promise<Destination> {
-    try {
-      // If destination already has an address, return as-is
-      if (destination.address && destination.address.trim().length > 0) {
-        return destination;
-      }
-
-      // Try to get address using reverse geocoding
-      const addressResult = await nominatimService.reverseGeocode(
-        destination.coordinate,
-      );
-
-      if (addressResult) {
-        return {
-          ...destination,
-          address: addressResult.address,
-          // Update name if it's generic (like "Selected Location")
-          name:
-            destination.name === "Selected Location" ||
-            destination.name.startsWith("Location at")
-              ? addressResult.displayName
-              : destination.name,
-        };
-      }
-
-      return destination;
-    } catch (error) {
-      console.warn("Failed to enrich destination with address:", error);
-      // Return original destination if reverse geocoding fails
-      return destination;
-    }
   }
 }
 

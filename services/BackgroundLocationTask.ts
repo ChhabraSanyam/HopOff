@@ -17,7 +17,7 @@ import * as TaskManager from "expo-task-manager";
 import { AppState } from "react-native";
 import { setCurrentLocation } from "../store/slices/locationSlice";
 import { Alarm } from "../types";
-import { calculateDistance } from "../utils";
+import { calculateDistance, isWithinRadius } from "../utils";
 import { notificationManager } from "./NotificationManager";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -26,9 +26,6 @@ const BACKGROUND_LOCATION_TASK = "hopoff-background-location-task";
 const ACTIVE_ALARMS_STORAGE_KEY = "hopoff_active_alarms";
 const SETTINGS_STORAGE_KEY = "user_settings";
 const PERSISTENT_NOTIFICATION_ID = "hop-off-persistent";
-
-const MIN_CHECK_INTERVAL_MS = 10_000; // Throttle: ignore updates faster than 10s
-let lastCheckTimestamp = 0;
 
 // ─── Read/write persisted alarms (same key as AlarmManager) ─────────────────
 // These cannot be imported from AlarmManager to avoid a circular dependency
@@ -99,7 +96,13 @@ async function performAlarmCheck(currentCoord: {
       );
     }
 
-    if (dist <= alarm.settings.triggerRadius) {
+    if (
+      isWithinRadius(
+        currentCoord,
+        alarm.destination.coordinate,
+        alarm.settings.triggerRadius,
+      )
+    ) {
       triggeredAlarmIds.push(alarm.id);
       await notificationManager.showAlarmNotification(alarm);
       await removePersistedAlarm(alarm.id);
@@ -158,11 +161,6 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
   if (!locations || locations.length === 0) return;
 
   const latest = locations[locations.length - 1];
-
-  // Throttle: skip if we checked too recently (Android can fire very fast in foreground)
-  if (latest.timestamp - lastCheckTimestamp < MIN_CHECK_INTERVAL_MS) return;
-  lastCheckTimestamp = latest.timestamp;
-
   const { latitude, longitude } = latest.coords;
   await performAlarmCheck({ latitude, longitude });
 });

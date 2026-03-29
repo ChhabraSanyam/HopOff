@@ -43,11 +43,11 @@ const MapComponent: React.FC<MapComponentProps> = ({
   // Calculate initial region based on current location or use default
   const initialRegion: Region = currentLocation
     ? {
-      latitude: currentLocation.latitude,
-      longitude: currentLocation.longitude,
-      latitudeDelta: 0.0922,
-      longitudeDelta: 0.0421,
-    }
+        latitude: currentLocation.latitude,
+        longitude: currentLocation.longitude,
+        latitudeDelta: 0.0922,
+        longitudeDelta: 0.0421,
+      }
     : mapRegion || defaultRegion;
 
   const handleMapPress = (event: { nativeEvent: { coordinate: LatLng } }) => {
@@ -94,7 +94,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
       };
       mapRef.current.animateToRegion(region, 800);
     }
-  }, [shouldCenterOnLocation]);
+  }, [shouldCenterOnLocation, currentLocation, mapRef]);
 
   // Fit both markers when destination is selected and shouldFitMarkers is true
   useEffect(() => {
@@ -189,7 +189,6 @@ const MapComponent: React.FC<MapComponentProps> = ({
             description={selectedDestination.address || "Selected destination"}
             pinColor="red"
             identifier="selected-destination"
-            anchor={{ x: 0.5, y: 0.5 }}
             calloutAnchor={{ x: 0.5, y: 0 }}
           />
           <Circle

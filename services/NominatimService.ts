@@ -1,6 +1,7 @@
 // OpenStreetMap Nominatim API service for free geocoding and address search
 import Constants from "expo-constants";
 import { AddressSearchResult, Coordinate, NominatimResult } from "../types";
+import { isValidCoordinate } from "../utils";
 
 export interface NominatimService {
   searchAddress(query: string, limit?: number): Promise<AddressSearchResult[]>;
@@ -34,7 +35,7 @@ export class NominatimServiceImpl implements NominatimService {
   private readonly userAgent = `HopOff/${Constants.expoConfig?.version || "1.0.0"} (mailto:sanyam@sanyamchhabra.in)`;
   private readonly requestTimeout = 10000; // 10 seconds
   private lastRequestTime = 0;
-  private readonly minRequestInterval = 1500; // 1.5 seconds between requests (conservative rate limit)
+  private readonly minRequestInterval = 1000; // Nominatim rate limit
 
   // Simple in-memory cache
   private searchCache = new Map<
@@ -164,7 +165,7 @@ export class NominatimServiceImpl implements NominatimService {
   ): Promise<AddressSearchResult | null> {
     try {
       // Validate coordinate
-      if (!this.isValidCoordinate(coordinate)) {
+      if (!isValidCoordinate(coordinate)) {
         throw new NominatimServiceError(
           NominatimError.INVALID_QUERY,
           "Invalid coordinate provided for reverse geocoding",
@@ -302,7 +303,7 @@ export class NominatimServiceImpl implements NominatimService {
   }
 
   /**
-   * Respect Nominatim rate limiting (max 1 request per 1.5 seconds for conservative approach)
+   * Respect Nominatim rate limiting (max 1 request per second per device)
    */
   private async respectRateLimit(): Promise<void> {
     const now = Date.now();
@@ -376,22 +377,6 @@ export class NominatimServiceImpl implements NominatimService {
     }
 
     return parts[0];
-  }
-
-  /**
-   * Validate coordinate values
-   */
-  private isValidCoordinate(coordinate: Coordinate): boolean {
-    return (
-      typeof coordinate.latitude === "number" &&
-      typeof coordinate.longitude === "number" &&
-      coordinate.latitude >= -90 &&
-      coordinate.latitude <= 90 &&
-      coordinate.longitude >= -180 &&
-      coordinate.longitude <= 180 &&
-      !isNaN(coordinate.latitude) &&
-      !isNaN(coordinate.longitude)
-    );
   }
 }
 

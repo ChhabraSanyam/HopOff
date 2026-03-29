@@ -4,7 +4,7 @@ This directory contains the Redux store configuration and state management for t
 
 ## Structure
 
-```
+```text
 store/
 ├── index.ts              # Main store configuration
 ├── hooks.ts              # Typed Redux hooks

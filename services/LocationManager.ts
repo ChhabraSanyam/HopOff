@@ -8,6 +8,7 @@
  */
 
 import * as Location from "expo-location";
+import { Platform } from "react-native";
 import { Coordinate } from "../types";
 import {
   GeofenceEvent,
@@ -129,10 +130,22 @@ export class LocationManagerImpl implements LocationManager {
 
       const isEnabled = await Location.hasServicesEnabledAsync();
       if (!isEnabled) {
-        throw new LocationManagerError(
-          LocationError.LOCATION_UNAVAILABLE,
-          "Location services are disabled. Please enable them in settings.",
-        );
+        // On Android, show native system prompt to enable location services.
+        if (Platform.OS === "android") {
+          try {
+            await Location.enableNetworkProviderAsync();
+          } catch {
+            // User may dismiss the prompt; handled by fallback error below.
+          }
+        }
+
+        const isEnabledAfterPrompt = await Location.hasServicesEnabledAsync();
+        if (!isEnabledAfterPrompt) {
+          throw new LocationManagerError(
+            LocationError.LOCATION_UNAVAILABLE,
+            "Location services are disabled. Please enable them in settings.",
+          );
+        }
       }
 
       const location = await Location.getCurrentPositionAsync({
@@ -254,22 +267,6 @@ export class LocationManagerImpl implements LocationManager {
     } catch (error) {
       console.error("Error during cleanup:", error);
     }
-  }
-
-  /**
-   * Validate coordinate values
-   */
-  private isValidCoordinate(coordinate: Coordinate): boolean {
-    return (
-      typeof coordinate.latitude === "number" &&
-      typeof coordinate.longitude === "number" &&
-      coordinate.latitude >= -90 &&
-      coordinate.latitude <= 90 &&
-      coordinate.longitude >= -180 &&
-      coordinate.longitude <= 180 &&
-      !isNaN(coordinate.latitude) &&
-      !isNaN(coordinate.longitude)
-    );
   }
 }
 

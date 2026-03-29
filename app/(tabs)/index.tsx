@@ -3,9 +3,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
-import { Alert, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, StyleSheet, Text, TouchableOpacity } from "react-native";
 import { LatLng } from "react-native-maps";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import AddressSearchModal from "../../components/AddressSearchModal";
 import AnimatedButton from "../../components/AnimatedButton";
 import ConfirmModal from "../../components/ConfirmModal";
@@ -13,7 +16,6 @@ import DestinationConfirmationModal from "../../components/DestinationConfirmati
 import FadeInView from "../../components/FadeInView";
 import LoadingSpinner from "../../components/LoadingSpinner";
 import MapComponent from "../../components/MapComponent";
-import QuickDestinationSelector from "../../components/QuickDestinationSelector";
 import SlideInView from "../../components/SlideInView";
 import { destinationSelectionService } from "../../services/DestinationSelectionService";
 import {
@@ -52,7 +54,6 @@ const MapScreen: React.FC = () => {
   const [pendingAddress, setPendingAddress] = useState<string | undefined>(
     undefined,
   );
-  const [showQuickSelector, setShowQuickSelector] = useState(false);
   const [showAddressSearch, setShowAddressSearch] = useState(false);
   const [shouldFitMarkers, setShouldFitMarkers] = useState(false);
   const [shouldCenterOnLocation, setShouldCenterOnLocation] = useState(false);
@@ -69,10 +70,15 @@ const MapScreen: React.FC = () => {
     title: "",
     message: "",
     confirmLabel: "View Alarm",
-    onConfirm: () => { },
+    onConfirm: () => {},
   });
 
-  const showInfoModal = (title: string, message: string, confirmLabel: string, onConfirm: () => void) => {
+  const showInfoModal = (
+    title: string,
+    message: string,
+    confirmLabel: string,
+    onConfirm: () => void,
+  ) => {
     setInfoModal({ visible: true, title, message, confirmLabel, onConfirm });
   };
   const hideInfoModal = () => setInfoModal((m) => ({ ...m, visible: false }));
@@ -219,7 +225,10 @@ const MapScreen: React.FC = () => {
           "Alarm Already Exists",
           result.message || "An alarm is already set for this location.",
           "View Alarm",
-          () => { hideInfoModal(); router.push("/alarm"); },
+          () => {
+            hideInfoModal();
+            router.push("/alarm");
+          },
         );
         return;
       }
@@ -228,11 +237,19 @@ const MapScreen: React.FC = () => {
         "Alarm Created",
         `Alarm has been set for: ${destination.name}`,
         "View Alarm",
-        () => { hideInfoModal(); router.push("/alarm"); },
+        () => {
+          hideInfoModal();
+          router.push("/alarm");
+        },
       );
     } catch (error) {
       console.error("Error creating alarm:", error);
-      showInfoModal("Error", "Failed to create alarm. Please try again.", "OK", hideInfoModal);
+      showInfoModal(
+        "Error",
+        "Failed to create alarm. Please try again.",
+        "OK",
+        hideInfoModal,
+      );
     }
   };
 
@@ -241,54 +258,6 @@ const MapScreen: React.FC = () => {
     setPendingCoordinate(null);
     setPendingName(undefined);
     setPendingAddress(undefined);
-  };
-
-  const handleQuickSelectDestination = async (destination: Destination) => {
-    try {
-      // Set as selected destination
-      dispatch(setSelectedDestination(destination));
-
-      // Add to recent destinations
-      dispatch(addRecentDestination(destination));
-
-      // Trigger map to fit both markers
-      setShouldFitMarkers(true);
-      // Reset after a brief delay to allow future manual zooms
-      setTimeout(() => setShouldFitMarkers(false), 2000);
-
-      // Create alarm settings from user preferences
-      const alarmSettings: AlarmSettings = {
-        triggerRadius: userSettings.defaultTriggerRadius,
-        vibrationEnabled: userSettings.vibrationEnabled,
-        persistentNotification: true,
-      };
-
-      // Create the alarm
-      const result = await dispatch(
-        createAlarm({ destination, settings: alarmSettings }),
-      ).unwrap();
-
-      // Check if this was an existing alarm at the same location
-      if (result.isExisting) {
-        showInfoModal(
-          "Alarm Already Exists",
-          result.message || "An alarm is already set for this location.",
-          "View Alarm",
-          () => { hideInfoModal(); router.push("/alarm"); },
-        );
-        return;
-      }
-
-      showInfoModal(
-        "Alarm Created",
-        `Alarm has been set for: ${destination.name}`,
-        "View Alarm",
-        () => { hideInfoModal(); router.push("/alarm"); },
-      );
-    } catch (error) {
-      console.error("Error creating alarm:", error);
-      showInfoModal("Error", "Failed to create alarm. Please try again.", "OK", hideInfoModal);
-    }
   };
 
   const handleAddressSearchSelect = async (destination: Destination) => {
@@ -335,6 +304,7 @@ const MapScreen: React.FC = () => {
         colors={["rgba(232, 47, 45, 0.48)", "rgba(255,255,255,0)"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
+        pointerEvents={locationError ? "none" : "box-none"}
         style={styles.headerBar}
       >
         {/* Left: locate / fit markers */}
@@ -342,20 +312,23 @@ const MapScreen: React.FC = () => {
           style={styles.headerBtn}
           onPress={handleLocatePress}
           disabled={isLoadingLocation}
+          accessibilityRole="button"
+          accessibilityLabel="Locate me"
+          accessibilityHint="Centers the map on your current location"
+          accessibilityState={{ disabled: isLoadingLocation }}
         >
           <Ionicons name="locate" size={22} color="#FFFFFF" />
         </TouchableOpacity>
-
-        {/* Centre: logo */}
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <Text style={styles.headerLogoText}>Hopoff</Text>
-          <Text style={[styles.headerLogoText, { marginLeft: -4 }]}>!</Text>
-        </View>
 
         {/* Right: search */}
         <TouchableOpacity
           style={styles.headerBtn}
           onPress={() => setShowAddressSearch(true)}
+          disabled={isLoadingLocation}
+          accessibilityRole="button"
+          accessibilityLabel="Open address search"
+          accessibilityHint="Search for an address to set as destination"
+          accessibilityState={{ disabled: isLoadingLocation }}
         >
           <Ionicons name="search" size={22} color="#FFFFFF" />
         </TouchableOpacity>
@@ -423,13 +396,6 @@ const MapScreen: React.FC = () => {
         onCancel={handleDestinationCancel}
       />
 
-      {/* Quick Destination Selector */}
-      <QuickDestinationSelector
-        visible={showQuickSelector}
-        onClose={() => setShowQuickSelector(false)}
-        onSelectDestination={handleQuickSelectDestination}
-      />
-
       {/* Address Search Modal */}
       <AddressSearchModal
         visible={showAddressSearch}
@@ -476,14 +442,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#b9221dff",
     justifyContent: "center",
     alignItems: "center",
-  },
-  headerLogoText: {
-    fontFamily: "Grobold",
-    fontSize: 28,
-    color: "#b9221d",
-    textShadowColor: "rgba(255, 255, 255, 0.8)",
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
   },
   permissionContainer: {
     flex: 1,

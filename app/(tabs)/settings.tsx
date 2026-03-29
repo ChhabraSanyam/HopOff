@@ -1,11 +1,11 @@
 // Settings screen for user preferences and app configuration
 import { Ionicons } from "@expo/vector-icons";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Linking from "expo-linking";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   Platform,
   ScrollView,
@@ -15,8 +15,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 import ConfirmModal from "../../components/ConfirmModal";
+import { store } from "../../store";
 import { useAppDispatch, useUserSettings } from "../../store/hooks";
 import {
   clearError,
@@ -39,7 +40,10 @@ interface SettingsSectionProps {
   children: React.ReactNode;
 }
 
-const SettingsSection: React.FC<SettingsSectionProps> = ({ title, children }) => (
+const SettingsSection: React.FC<SettingsSectionProps> = ({
+  title,
+  children,
+}) => (
   <View style={styles.section}>
     <Text style={styles.sectionTitle}>{title}</Text>
     {children}
@@ -52,7 +56,11 @@ interface SettingsRowProps {
   description?: string;
 }
 
-const SettingsRow: React.FC<SettingsRowProps> = ({ label, children, description }) => (
+const SettingsRow: React.FC<SettingsRowProps> = ({
+  label,
+  children,
+  description,
+}) => (
   <View style={styles.row}>
     <View style={styles.rowContent}>
       <Text style={styles.rowLabel}>{label}</Text>
@@ -64,7 +72,7 @@ const SettingsRow: React.FC<SettingsRowProps> = ({ label, children, description 
 
 const SettingsScreen: React.FC = () => {
   const dispatch = useAppDispatch();
-  const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const settings = useUserSettings() as UserSettings & {
     isLoading: boolean;
     error: string | null;
@@ -79,12 +87,33 @@ const SettingsScreen: React.FC = () => {
   const footerOpacity = useRef(new Animated.Value(0)).current;
 
   const [modalConfig, setModalConfig] = useState({
-    visible: false, title: "", message: "", confirmLabel: "OK", cancelLabel: "Cancel", destructive: false, onConfirm: () => {},
+    visible: false,
+    title: "",
+    message: "",
+    confirmLabel: "OK",
+    cancelLabel: "Cancel",
+    destructive: false,
+    onConfirm: () => {},
   });
-  const showModal = (title: string, message: string, confirmLabel = "OK", cancelLabel = "Cancel", onConfirm = hideModal, destructive = false) => {
-    setModalConfig({ visible: true, title, message, confirmLabel, cancelLabel, onConfirm, destructive });
+  const showModal = (
+    title: string,
+    message: string,
+    confirmLabel = "OK",
+    cancelLabel = "Cancel",
+    onConfirm = hideModal,
+    destructive = false,
+  ) => {
+    setModalConfig({
+      visible: true,
+      title,
+      message,
+      confirmLabel,
+      cancelLabel,
+      onConfirm,
+      destructive,
+    });
   };
-  const hideModal = () => setModalConfig(m => ({ ...m, visible: false }));
+  const hideModal = () => setModalConfig((m) => ({ ...m, visible: false }));
 
   useEffect(() => {
     if (hasUnsavedChanges) {
@@ -115,7 +144,7 @@ const SettingsScreen: React.FC = () => {
         }),
       ]).start();
     }
-  }, [hasUnsavedChanges]);
+  }, [hasUnsavedChanges, footerOpacity, footerTranslateY]);
 
   // Re-derive hasUnsavedChanges whenever the live settings change
   useEffect(() => {
@@ -124,7 +153,8 @@ const SettingsScreen: React.FC = () => {
     const changed =
       settings.defaultTriggerRadius !== snap.defaultTriggerRadius ||
       settings.vibrationEnabled !== snap.vibrationEnabled ||
-      settings.persistentNotificationEnabled !== snap.persistentNotificationEnabled ||
+      settings.persistentNotificationEnabled !==
+        snap.persistentNotificationEnabled ||
       settings.batteryOptimizationEnabled !== snap.batteryOptimizationEnabled;
     setHasUnsavedChanges(changed);
   }, [
@@ -135,19 +165,33 @@ const SettingsScreen: React.FC = () => {
   ]);
 
   useEffect(() => {
-    dispatch(loadSettings()).then((action: any) => {
-      if (action.meta.requestStatus === "fulfilled") {
+    const initSettings = async () => {
+      try {
+        const loaded = await dispatch(loadSettings()).unwrap();
         // Snapshot what was just loaded from storage
-        const loaded = action.payload as UserSettings;
         savedSnapshot.current = {
           defaultTriggerRadius: loaded.defaultTriggerRadius,
           vibrationEnabled: loaded.vibrationEnabled,
           persistentNotificationEnabled: loaded.persistentNotificationEnabled,
           batteryOptimizationEnabled: loaded.batteryOptimizationEnabled,
         };
+      } catch {
+        // Seed snapshot from current Redux-backed settings so unsaved detection still works
+        const currentSettings = store.getState().settings;
+        savedSnapshot.current = {
+          defaultTriggerRadius: currentSettings.defaultTriggerRadius,
+          vibrationEnabled: currentSettings.vibrationEnabled,
+          persistentNotificationEnabled:
+            currentSettings.persistentNotificationEnabled,
+          batteryOptimizationEnabled:
+            currentSettings.batteryOptimizationEnabled,
+        };
+      } finally {
         setHasUnsavedChanges(false);
       }
-    });
+    };
+
+    initSettings();
   }, [dispatch]);
 
   useEffect(() => {
@@ -169,7 +213,13 @@ const SettingsScreen: React.FC = () => {
     };
     const validation = validateUserSettings(settingsToSave);
     if (!validation.isValid) {
-      showModal("Invalid Settings", validation.errors.join("\n"), "OK", "Close", hideModal);
+      showModal(
+        "Invalid Settings",
+        validation.errors.join("\n"),
+        "OK",
+        "Close",
+        hideModal,
+      );
       return;
     }
     try {
@@ -178,7 +228,13 @@ const SettingsScreen: React.FC = () => {
       savedSnapshot.current = { ...settingsToSave };
       setHasUnsavedChanges(false);
     } catch (error) {
-      showModal("Error", `Failed to save settings: ${error}`, "OK", "Close", hideModal);
+      showModal(
+        "Error",
+        `Failed to save settings: ${error}`,
+        "OK",
+        "Close",
+        hideModal,
+      );
     }
   };
 
@@ -199,7 +255,7 @@ const SettingsScreen: React.FC = () => {
         );
         hideModal();
       },
-      true
+      true,
     );
   };
 
@@ -216,15 +272,23 @@ const SettingsScreen: React.FC = () => {
         "Please go to your device Settings > Apps > HopOff > Notifications to customize notification sounds.",
         "OK",
         "Cancel",
-        hideModal
+        hideModal,
       );
     }
   };
 
   if (settings.isLoading) {
     return (
-      <LinearGradient colors={GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={{ flex: 1 }}>
-        <SafeAreaView style={styles.loadingContainer} edges={["top", "left", "right"]}>
+      <LinearGradient
+        colors={GRADIENT}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={{ flex: 1 }}
+      >
+        <SafeAreaView
+          style={styles.loadingContainer}
+          edges={["top", "left", "right"]}
+        >
           <ActivityIndicator size="large" color="#fff" />
           <Text style={styles.loadingText}>Loading settings...</Text>
         </SafeAreaView>
@@ -233,56 +297,77 @@ const SettingsScreen: React.FC = () => {
   }
 
   return (
-    <LinearGradient colors={GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={{ flex: 1 }}>
+    <LinearGradient
+      colors={GRADIENT}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={{ flex: 1 }}
+    >
       <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
-        <ScrollView 
-          style={styles.scrollView} 
+        <ScrollView
+          style={styles.scrollView}
           contentContainerStyle={[
-            styles.scrollContent, 
-            hasUnsavedChanges && { paddingBottom: 160 }
+            styles.scrollContent,
+            {
+              paddingBottom: hasUnsavedChanges
+                ? tabBarHeight + 96
+                : tabBarHeight + 24,
+            },
           ]}
         >
           {settings.error && (
             <View style={styles.errorContainer}>
               <Text style={styles.errorText}>{settings.error}</Text>
-              <TouchableOpacity onPress={() => dispatch(clearError())} style={styles.errorDismiss}>
+              <TouchableOpacity
+                onPress={() => dispatch(clearError())}
+                style={styles.errorDismiss}
+              >
                 <Text style={styles.errorDismissText}>Dismiss</Text>
               </TouchableOpacity>
             </View>
           )}
 
           <SettingsSection title="Alarm Settings">
-            <SettingsRow
-              label="Trigger Distance"
-              description="How close to your destination before the alarm triggers"
-            >
+            <View style={styles.rowStacked}>
+              <Text style={styles.rowLabel}>Trigger Distance</Text>
+              <Text style={styles.rowDescription}>
+                How close to your destination before the alarm triggers
+              </Text>
               <View style={styles.radiusContainer}>
                 {VALIDATION_CONSTANTS.VALID_TRIGGER_RADII.map((radius) => (
                   <TouchableOpacity
                     key={radius}
                     style={[
                       styles.radiusButton,
-                      settings.defaultTriggerRadius === radius && styles.radiusButtonActive,
+                      settings.defaultTriggerRadius === radius &&
+                        styles.radiusButtonActive,
                     ]}
                     onPress={() => handleTriggerRadiusSelect(radius)}
                   >
                     <Text
+                      numberOfLines={1}
                       style={[
                         styles.radiusButtonText,
-                        settings.defaultTriggerRadius === radius && styles.radiusButtonTextActive,
+                        settings.defaultTriggerRadius === radius &&
+                          styles.radiusButtonTextActive,
                       ]}
                     >
-                      {radius >= 1000 ? `${radius / 1000} km` : `${radius}m`}
+                      {radius >= 1000 ? `${radius / 1000} km` : `${radius} m`}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
-            </SettingsRow>
+            </View>
 
-            <SettingsRow label="Vibration" description="Enable haptic feedback when alarm triggers">
+            <SettingsRow
+              label="Vibration"
+              description="Enable haptic feedback when alarm triggers"
+            >
               <Switch
                 value={settings.vibrationEnabled}
-                onValueChange={(value) => handleSettingChange("vibrationEnabled", value)}
+                onValueChange={(value) =>
+                  handleSettingChange("vibrationEnabled", value)
+                }
                 trackColor={{ false: "rgba(255,255,255,0.2)", true: BRAND }}
                 thumbColor="#fff"
               />
@@ -304,7 +389,10 @@ const SettingsScreen: React.FC = () => {
           </SettingsSection>
 
           <SettingsSection title="Notification Sound">
-            <TouchableOpacity style={styles.notificationSettingsRow} onPress={openNotificationSettings}>
+            <TouchableOpacity
+              style={styles.notificationSettingsRow}
+              onPress={openNotificationSettings}
+            >
               <View style={styles.rowContent}>
                 <Text style={styles.rowLabel}>Customize Alarm Sound</Text>
                 <Text style={styles.rowDescription}>
@@ -314,11 +402,19 @@ const SettingsScreen: React.FC = () => {
                 </Text>
               </View>
               <View style={styles.rowControl}>
-                <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.5)" />
+                <Ionicons
+                  name="chevron-forward"
+                  size={20}
+                  color="rgba(255,255,255,0.5)"
+                />
               </View>
             </TouchableOpacity>
             <View style={styles.soundInfoContainer}>
-              <Ionicons name="information-circle-outline" size={16} color="rgba(255,255,255,0.5)" />
+              <Ionicons
+                name="information-circle-outline"
+                size={16}
+                color="rgba(255,255,255,0.5)"
+              />
               <Text style={styles.soundInfoText}>
                 {Platform.OS === "android"
                   ? 'In notification settings, select "Destination Alarms" channel to change the sound'
@@ -334,7 +430,9 @@ const SettingsScreen: React.FC = () => {
             >
               <Switch
                 value={settings.batteryOptimizationEnabled}
-                onValueChange={(value) => handleSettingChange("batteryOptimizationEnabled", value)}
+                onValueChange={(value) =>
+                  handleSettingChange("batteryOptimizationEnabled", value)
+                }
                 trackColor={{ false: "rgba(255,255,255,0.2)", true: BRAND }}
                 thumbColor="#fff"
               />
@@ -345,9 +443,10 @@ const SettingsScreen: React.FC = () => {
         <Animated.View
           style={[
             styles.footer,
-            { 
+            {
               bottom: 0,
-              paddingBottom: 68 + insets.bottom + 20 
+              paddingTop: 8,
+              paddingBottom: tabBarHeight + 16,
             },
             {
               opacity: footerOpacity,
@@ -357,10 +456,16 @@ const SettingsScreen: React.FC = () => {
           pointerEvents={hasUnsavedChanges ? "auto" : "none"}
         >
           <View style={styles.buttonContainer}>
-            <TouchableOpacity style={[styles.button, styles.resetButton]} onPress={handleResetSettings}>
+            <TouchableOpacity
+              style={[styles.button, styles.resetButton]}
+              onPress={handleResetSettings}
+            >
               <Text style={styles.resetButtonText}>Reset to Defaults</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.button, styles.saveButton]} onPress={handleSaveSettings}>
+            <TouchableOpacity
+              style={[styles.button, styles.saveButton]}
+              onPress={handleSaveSettings}
+            >
               <Text style={styles.saveButtonText}>Save Settings</Text>
             </TouchableOpacity>
           </View>
@@ -450,6 +555,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "rgba(255,255,255,0.12)",
   },
+  rowStacked: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(255,255,255,0.12)",
+  },
   rowContent: {
     flex: 1,
   },
@@ -469,16 +580,21 @@ const styles = StyleSheet.create({
   },
   radiusContainer: {
     flexDirection: "row",
+    justifyContent: "space-between",
     gap: 8,
-    flexWrap: "wrap",
+    flexWrap: "nowrap",
+    marginTop: 12,
   },
   radiusButton: {
+    flex: 1,
+    minWidth: 0,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
     backgroundColor: "rgba(255,255,255,0.15)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.25)",
+    alignItems: "center",
   },
   radiusButtonActive: {
     backgroundColor: BRAND,
@@ -521,7 +637,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "rgba(255,255,255,0.15)",
     paddingHorizontal: 16,
-    paddingTop: 16,
   },
   unsavedIndicator: {
     backgroundColor: "rgba(255,255,255,0.15)",

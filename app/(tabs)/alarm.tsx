@@ -4,6 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -15,8 +16,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import AlarmStatusCard from "../../components/AlarmStatusCard";
 import ConfirmModal from "../../components/ConfirmModal";
 import { notificationManager } from "../../services/NotificationManager";
+import { store } from "../../store";
 import {
-  useActiveAlarmCount,
   useActiveAlarms,
   useAppDispatch,
   useCurrentLocation,
@@ -29,17 +30,11 @@ import { Alarm } from "../../types";
 import { calculateDistance } from "../../utils";
 
 const BRAND = "#e49e9cff";
-const GRADIENT: [string, string, string] = [
-  "rgba(238, 155, 141, 0.7)",
-  "rgba(243, 166, 145, 0.4)",
-  "rgba(241, 205, 199, 0.72)",
-];
-
 export default function AlarmScreen() {
   const dispatch = useAppDispatch();
   const activeAlarms = useActiveAlarms();
   const hasActiveAlarms = useHasActiveAlarms();
-  const alarmCount = useActiveAlarmCount();
+  const alarmCount = activeAlarms.length;
   const currentLocation = useCurrentLocation();
   const isLoading = useIsAlarmLoading();
 
@@ -66,38 +61,44 @@ export default function AlarmScreen() {
     [currentLocation],
   );
 
-  const handleCancelAlarm = useCallback(
-    (alarm: Alarm) => {
-      setCancelTarget(alarm);
-    },
-    [],
-  );
+  const handleCancelAlarm = useCallback((alarm: Alarm) => {
+    setCancelTarget(alarm);
+  }, []);
 
   const confirmCancelAlarm = useCallback(async () => {
     if (!cancelTarget) return;
     const alarm = cancelTarget;
-    setCancelTarget(null);
     try {
       await dispatch(cancelAlarm(alarm.id)).unwrap();
-      if (alarmCount <= 1) {
+      const updatedAlarmCount = store.getState().alarm.activeAlarms.length;
+      if (updatedAlarmCount === 0) {
         await notificationManager.clearNotifications();
       }
+      setCancelTarget(null);
     } catch (error) {
       console.error("Error cancelling alarm:", error);
+      Alert.alert(
+        "Cancel Failed",
+        "Could not cancel this alarm. Please try again.",
+      );
     }
-  }, [cancelTarget, dispatch, alarmCount]);
+  }, [cancelTarget, dispatch]);
 
   const handleCancelAllAlarms = useCallback(() => {
     setShowCancelAll(true);
   }, []);
 
   const confirmCancelAllAlarms = useCallback(async () => {
-    setShowCancelAll(false);
     try {
       await dispatch(cancelAllAlarms()).unwrap();
       await notificationManager.clearNotifications();
+      setShowCancelAll(false);
     } catch (error) {
       console.error("Error cancelling all alarms:", error);
+      Alert.alert(
+        "Cancel All Failed",
+        "Could not cancel all alarms. Please try again.",
+      );
     }
   }, [dispatch]);
 
@@ -112,35 +113,29 @@ export default function AlarmScreen() {
     }
   }, [dispatch]);
 
-  const formatDistance = (distanceInMeters: number): string => {
-    if (distanceInMeters >= 1000) {
-      return `${(distanceInMeters / 1000).toFixed(1)} km`;
-    }
-    return `${Math.round(distanceInMeters)} m`;
-  };
-
-  const formatTimeEstimate = (distanceInMeters: number): string => {
-    const metroSpeedMps = 11;
-    const timeInSeconds = distanceInMeters / metroSpeedMps;
-    if (timeInSeconds < 60) return `${Math.round(timeInSeconds)} sec`;
-    if (timeInSeconds < 3600) return `${Math.round(timeInSeconds / 60)} min`;
-    return `${Math.round(timeInSeconds / 3600)} hr`;
-  };
-
   if (!hasActiveAlarms) {
     return (
       <LinearGradient
-        colors={["rgba(130, 26, 25, 0.95)", "rgba(232, 47, 45, 0.55)", "rgba(130, 26, 25, 0.9)"]}
+        colors={[
+          "rgba(130, 26, 25, 0.95)",
+          "rgba(232, 47, 45, 0.55)",
+          "rgba(130, 26, 25, 0.9)",
+        ]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={{ flex: 1 }}
       >
         <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
           <View style={styles.noAlarmContainer}>
-            <Ionicons name="alarm-outline" size={72} color="rgba(255,255,255,0.4)" />
+            <Ionicons
+              name="alarm-outline"
+              size={72}
+              color="rgba(255,255,255,0.4)"
+            />
             <Text style={styles.noAlarmTitle}>No Active Alarms</Text>
             <Text style={styles.noAlarmText}>
-              Set a destination alarm from the map screen to monitor your journey.
+              Set a destination alarm from the map screen to monitor your
+              journey.
             </Text>
           </View>
         </SafeAreaView>
@@ -150,7 +145,11 @@ export default function AlarmScreen() {
 
   return (
     <LinearGradient
-      colors={["rgba(130, 26, 25, 0.95)", "rgba(232, 47, 45, 0.55)", "rgba(130, 26, 25, 0.9)"]}
+      colors={[
+        "rgba(130, 26, 25, 0.95)",
+        "rgba(232, 47, 45, 0.55)",
+        "rgba(130, 26, 25, 0.9)",
+      ]}
       start={{ x: 0, y: 0 }}
       end={{ x: 0, y: 1 }}
       style={{ flex: 1 }}
@@ -226,7 +225,11 @@ export default function AlarmScreen() {
       <ConfirmModal
         visible={cancelTarget !== null}
         title="Cancel Alarm"
-        message={cancelTarget ? `Cancel the alarm for "${cancelTarget.destination.name}"?` : ""}
+        message={
+          cancelTarget
+            ? `Cancel the alarm for "${cancelTarget.destination.name}"?`
+            : ""
+        }
         confirmLabel="Cancel Alarm"
         cancelLabel="Keep Alarm"
         destructive

@@ -5,7 +5,6 @@ import React, { useRef, useState } from "react";
 import {
   Alert,
   Dimensions,
-  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -23,10 +22,9 @@ const { width } = Dimensions.get("window");
 
 interface OnboardingStep {
   id: string;
-  title?: string;
-  description?: string;
-  icon?: keyof typeof Ionicons.glyphMap;
-  image?: any;
+  title: string;
+  description: string;
+  icon: keyof typeof Ionicons.glyphMap;
   color: string;
   action?: () => Promise<void>;
   actionText?: string;
@@ -94,7 +92,10 @@ const OnboardingScreen: React.FC = () => {
   const onboardingSteps: OnboardingStep[] = [
     {
       id: "welcome",
-      image: require("../../assets/images/adaptive-icon.png"),
+      title: "Welcome to HopOff!",
+      description:
+        "Never miss your stop again! HopOff monitors your location and alerts you when you're approaching your destination.",
+      icon: "location",
       color: "#b9221d",
     },
     {
@@ -189,32 +190,12 @@ const OnboardingScreen: React.FC = () => {
   const renderStep = (step: OnboardingStep, index: number) => (
     <View key={step.id} style={styles.stepContainer}>
       <View style={styles.stepContent}>
-        {step.id === "welcome" ? (
-          <>
-            <Image 
-              source={step.image} 
-              style={{ width: 440, height: 540, marginTop: -60, marginBottom: -20 }} 
-              resizeMode="contain" 
-            />
-            <View style={styles.logoContainer}>
-              <Text style={styles.logoText}>Hopoff</Text>
-              <Text style={[styles.logoText, { marginLeft: -8 }]}>!</Text>
-            </View>
-          </>
-        ) : step.image ? (
-          <Image 
-            source={step.image} 
-            style={{ width: 260, height: 260, marginBottom: 32, marginTop: -40 }} 
-            resizeMode="contain" 
-          />
-        ) : (
-          <View style={[styles.iconContainer, { backgroundColor: step.color }]}>
-            {step.icon && <Ionicons name={step.icon} size={48} color="#FFFFFF" />}
-          </View>
-        )}
+        <View style={[styles.iconContainer, { backgroundColor: step.color }]}>
+          <Ionicons name={step.icon} size={48} color="#FFFFFF" />
+        </View>
 
-        {!!step.title && <Text style={styles.stepTitle}>{step.title}</Text>}
-        {!!step.description && <Text style={styles.stepDescription}>{step.description}</Text>}
+        <Text style={styles.stepTitle}>{step.title}</Text>
+        <Text style={styles.stepDescription}>{step.description}</Text>
 
         {step.action && (
           <TouchableOpacity
@@ -364,16 +345,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#F2E2E2",
-  },
-  logoContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginBottom: 60,
-  },
-  logoText: {
-    fontFamily: "Grobold",
-    fontSize: 64,
-    color: "#b9221d",
   },
   header: {
     flexDirection: "row",

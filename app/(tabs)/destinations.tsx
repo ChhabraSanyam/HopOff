@@ -4,7 +4,6 @@ import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   RefreshControl,
   StyleSheet,
@@ -14,8 +13,9 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useDispatch, useSelector } from "react-redux";
+import { useSelector } from "react-redux";
 import ConfirmModal from "../../components/ConfirmModal";
+import { useAppDispatch } from "../../store/hooks";
 import { createAlarm } from "../../store/slices/alarmSlice";
 import {
   deleteDestination,
@@ -32,7 +32,7 @@ const GRADIENT: [string, string, string] = [
 ];
 
 const SavedDestinationsScreen: React.FC = () => {
-  const dispatch = useDispatch();
+  const dispatch = useAppDispatch();
   const {
     saved: destinations,
     isLoading,
@@ -41,7 +41,9 @@ const SavedDestinationsScreen: React.FC = () => {
   const userSettings = useSelector((state: AppState) => state.settings);
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [filteredDestinations, setFilteredDestinations] = useState<Destination[]>([]);
+  const [filteredDestinations, setFilteredDestinations] = useState<
+    Destination[]
+  >([]);
   const [refreshing, setRefreshing] = useState(false);
 
   // Themed modal state
@@ -54,10 +56,31 @@ const SavedDestinationsScreen: React.FC = () => {
     destructive: boolean;
     onConfirm: () => void;
   }>({
-    visible: false, title: "", message: "", confirmLabel: "View Alarm", cancelLabel: "OK", destructive: false, onConfirm: () => { },
+    visible: false,
+    title: "",
+    message: "",
+    confirmLabel: "View Alarm",
+    cancelLabel: "OK",
+    destructive: false,
+    onConfirm: () => {},
   });
-  const showInfoModal = (title: string, message: string, confirmLabel: string, onConfirm: () => void, cancelLabel: string = "OK", destructive: boolean = false) =>
-    setInfoModal({ visible: true, title, message, confirmLabel, cancelLabel, destructive, onConfirm });
+  const showInfoModal = (
+    title: string,
+    message: string,
+    confirmLabel: string,
+    onConfirm: () => void,
+    cancelLabel: string = "OK",
+    destructive: boolean = false,
+  ) =>
+    setInfoModal({
+      visible: true,
+      title,
+      message,
+      confirmLabel,
+      cancelLabel,
+      destructive,
+      onConfirm,
+    });
   const hideInfoModal = () => setInfoModal((m) => ({ ...m, visible: false }));
 
   useEffect(() => {
@@ -78,7 +101,8 @@ const SavedDestinationsScreen: React.FC = () => {
       const filtered = destinations.filter(
         (dest) =>
           dest.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (dest.address && dest.address.toLowerCase().includes(searchQuery.toLowerCase())),
+          (dest.address &&
+            dest.address.toLowerCase().includes(searchQuery.toLowerCase())),
       );
       setFilteredDestinations(filtered);
     }
@@ -105,14 +129,19 @@ const SavedDestinationsScreen: React.FC = () => {
       "Delete",
       async () => {
         try {
-          await dispatch(deleteDestination(destination.id) as any);
+          await dispatch(deleteDestination(destination.id)).unwrap();
           hideInfoModal();
         } catch {
-          showInfoModal("Error", "Failed to delete destination", "OK", hideInfoModal);
+          showInfoModal(
+            "Error",
+            "Failed to delete destination",
+            "OK",
+            hideInfoModal,
+          );
         }
       },
       "Cancel",
-      true
+      true,
     );
   };
 
@@ -133,7 +162,10 @@ const SavedDestinationsScreen: React.FC = () => {
           "Alarm Already Exists",
           result.message || "An alarm is already set for this location.",
           "View Alarm",
-          () => { hideInfoModal(); router.push("/alarm"); },
+          () => {
+            hideInfoModal();
+            router.push("/alarm");
+          },
         );
         return;
       }
@@ -142,11 +174,19 @@ const SavedDestinationsScreen: React.FC = () => {
         "Alarm Created",
         `Alarm has been set for: ${destination.name}`,
         "View Alarm",
-        () => { hideInfoModal(); router.push("/alarm"); },
+        () => {
+          hideInfoModal();
+          router.push("/alarm");
+        },
       );
     } catch (error) {
       console.error("Error creating alarm:", error);
-      showInfoModal("Error", "Failed to create alarm. Please check your location services and try again.", "OK", hideInfoModal);
+      showInfoModal(
+        "Error",
+        "Failed to create alarm. Please check your location services and try again.",
+        "OK",
+        hideInfoModal,
+      );
     }
   };
 
@@ -194,8 +234,16 @@ const SavedDestinationsScreen: React.FC = () => {
 
   if (isLoading && destinations.length === 0) {
     return (
-      <LinearGradient colors={GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={{ flex: 1 }}>
-        <SafeAreaView style={styles.loadingContainer} edges={["top", "left", "right"]}>
+      <LinearGradient
+        colors={GRADIENT}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={{ flex: 1 }}
+      >
+        <SafeAreaView
+          style={styles.loadingContainer}
+          edges={["top", "left", "right"]}
+        >
           <ActivityIndicator size="large" color="#fff" />
           <Text style={styles.loadingText}>Loading destinations...</Text>
         </SafeAreaView>
@@ -204,7 +252,12 @@ const SavedDestinationsScreen: React.FC = () => {
   }
 
   return (
-    <LinearGradient colors={GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={{ flex: 1 }}>
+    <LinearGradient
+      colors={GRADIENT}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={{ flex: 1 }}
+    >
       <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
         {/* Header */}
         <View style={styles.header}>
@@ -222,7 +275,10 @@ const SavedDestinationsScreen: React.FC = () => {
         {error && (
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={loadDestinations}>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={loadDestinations}
+            >
               <Text style={styles.retryButtonText}>Retry</Text>
             </TouchableOpacity>
           </View>
@@ -242,7 +298,9 @@ const SavedDestinationsScreen: React.FC = () => {
             />
           }
           contentContainerStyle={
-            filteredDestinations.length === 0 ? styles.emptyContainer : styles.listContent
+            filteredDestinations.length === 0
+              ? styles.emptyContainer
+              : styles.listContent
           }
         />
       </SafeAreaView>

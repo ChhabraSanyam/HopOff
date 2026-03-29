@@ -1,7 +1,11 @@
 // Alarm management service for HopOff app
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Alarm, AlarmSettings, Coordinate, Destination } from "../types";
-import { calculateDistance } from "../utils";
+import {
+  calculateDistance,
+  generateId,
+  validateAlarmSettings as validateAlarmSettingsUtil,
+} from "../utils";
 import { ErrorHandler, handleAsyncOperation } from "../utils/ErrorHandler";
 import { BackgroundLocationManager } from "./BackgroundLocationTask";
 import { locationManager } from "./LocationManager";
@@ -194,11 +198,27 @@ export class AlarmManagerImpl implements AlarmManager {
       }
 
       // Validate settings
-      this.validateAlarmSettings(settings);
+      const createValidation = validateAlarmSettingsUtil(settings);
+      if (!createValidation.isValid) {
+        throw new Error(
+          `Invalid alarm settings: ${createValidation.errors.join(", ")}`,
+        );
+      }
+
+      // Best-effort notification permission prompt before creating alarms.
+      // Do not block alarm creation if user denies or check fails.
+      try {
+        await notificationManager.requestPermissions();
+      } catch (permissionError) {
+        console.warn(
+          "Notification permission prompt failed during alarm creation:",
+          permissionError,
+        );
+      }
 
       // Create new alarm
       const alarm: Alarm = {
-        id: `alarm_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        id: generateId("alarm"),
         destination,
         settings,
         isActive: true,
@@ -355,24 +375,17 @@ export class AlarmManagerImpl implements AlarmManager {
 
     // Validate new settings
     const updatedSettings = { ...alarm.settings, ...settings };
-    this.validateAlarmSettings(updatedSettings);
+    const updateValidation = validateAlarmSettingsUtil(updatedSettings);
+    if (!updateValidation.isValid) {
+      throw new Error(
+        `Invalid alarm settings: ${updateValidation.errors.join(", ")}`,
+      );
+    }
 
     // Update alarm settings
     alarm.settings = updatedSettings;
     this.activeAlarms.set(alarmId, alarm);
     await this.persistAlarms();
-  }
-
-  /**
-   * Validate alarm settings
-   */
-  private validateAlarmSettings(settings: AlarmSettings): void {
-    if (settings.triggerRadius < 50 || settings.triggerRadius > 2000) {
-      throw new Error("Trigger radius must be between 50 and 2000 meters");
-    }
-
-    // Note: soundId and volume fields are kept for backward compatibility but are not used.
-    // Notification sounds are controlled by system notification channel settings.
   }
 
   /**

@@ -37,26 +37,7 @@ function AppInitializer({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
-import { useFonts } from 'expo-font';
-import * as SplashScreen from 'expo-splash-screen';
-SplashScreen.preventAutoHideAsync();
-
 export default function RootLayout() {
-  const [loaded, error] = useFonts({
-    Grobold: require('../assets/fonts/GROBOLD.ttf'),
-  });
-
-  useEffect(() => {
-    if (loaded || error) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded, error]);
-
-  if (!loaded && !error) {
-    return null;
-  }
-
   return (
     <Provider store={store}>
       <SafeAreaProvider>

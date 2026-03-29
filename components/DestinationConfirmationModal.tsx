@@ -1,6 +1,6 @@
 // Destination confirmation modal component
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -19,6 +19,7 @@ import { saveDestination } from "../store/slices/destinationSlice";
 import { Coordinate, Destination } from "../types";
 import {
   formatCoordinate,
+  generateId,
   sanitizeDestinationName,
   validateDestination,
 } from "../utils";
@@ -42,269 +43,308 @@ const DestinationConfirmationModal: React.FC<
   initialName,
   initialAddress,
 }) => {
-    const dispatch = useDispatch();
-    const [destinationName, setDestinationName] = useState("");
-    const [address, setAddress] = useState("");
-    const [isLoadingAddress, setIsLoadingAddress] = useState(false);
-    const [addToFavourites, setAddToFavourites] = useState(false);
-    const [validationErrors, setValidationErrors] = useState<string[]>([]);
-    const [isSaving, setIsSaving] = useState(false);
+  const dispatch = useDispatch();
+  const [destinationName, setDestinationName] = useState("");
+  const [address, setAddress] = useState("");
+  const [isLoadingAddress, setIsLoadingAddress] = useState(false);
+  const [addToFavourites, setAddToFavourites] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const latestAddressRequestIdRef = useRef(0);
 
-    // Reset state when modal opens/closes
-    useEffect(() => {
-      if (visible && coordinate) {
-        // Use provided initial values or defaults
-        setDestinationName(initialName || "Selected Location");
-        setAddress(initialAddress || formatCoordinate(coordinate));
-        setAddToFavourites(false);
-        setValidationErrors([]);
-
-        // Only load address from coordinate if not already provided
-        if (!initialAddress) {
-          loadAddressFromCoordinate(coordinate);
-        } else {
-          // Address already provided, no need to reverse geocode
-          setIsLoadingAddress(false);
-        }
-      } else if (!visible) {
-        // Reset state when modal closes
-        setDestinationName("");
-        setAddress("");
-        setAddToFavourites(false);
-        setValidationErrors([]);
-        setIsLoadingAddress(false);
-      }
-    }, [visible, coordinate, initialName, initialAddress]);
-
-    /**
-     * Load address from coordinate using reverse geocoding
-     */
-    const loadAddressFromCoordinate = async (coord: Coordinate) => {
-      setIsLoadingAddress(true);
-      try {
-        const result = await nominatimService.reverseGeocode(coord);
-
-        if (result) {
-          // Update address with the geocoded result
-          setAddress(result.address);
-
-          // Use the location name as destination name if available
-          if (result.displayName) {
-            setDestinationName(result.displayName);
-          }
-        } else {
-          // Fallback to coordinates if no address found
-          setAddress(formatCoordinate(coord));
-        }
-      } catch (error) {
-        console.warn("Failed to reverse geocode coordinate:", error);
-        // Keep the coordinate format as fallback
-        setAddress(formatCoordinate(coord));
-      } finally {
-        setIsLoadingAddress(false);
-      }
-    };
-
-    const validateInput = (): boolean => {
-      if (!coordinate) {
-        setValidationErrors(["Invalid coordinate"]);
-        return false;
-      }
-
-      const destination: Partial<Destination> = {
-        name: destinationName,
-        coordinate,
-        address,
-      };
-
-      const validation = validateDestination(destination);
-      setValidationErrors(validation.errors);
-      return validation.isValid;
-    };
-
-    const handleConfirm = async () => {
-      if (!validateInput() || !coordinate) {
-        return;
-      }
-
-      // If addToFavourites is checked, save and then set alarm
-      if (addToFavourites) {
-        await handleSaveAndConfirm();
-      } else {
-        // Just set alarm without saving
-        const destination: Destination = {
-          id: `dest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          name: sanitizeDestinationName(destinationName),
-          coordinate,
-          address: address.trim() || undefined,
-          createdAt: new Date().toISOString(),
-        };
-
-        onConfirm(destination);
-      }
-    };
-
-    const handleSaveAndConfirm = async () => {
-      if (!validateInput() || !coordinate) {
-        return;
-      }
-
-      setIsSaving(true);
-      try {
-        const destinationData = {
-          name: sanitizeDestinationName(destinationName),
-          coordinate,
-          address: address.trim() || undefined,
-        };
-
-        const result = await dispatch(saveDestination(destinationData) as any);
-
-        if (result.type === "destinations/save/fulfilled") {
-          const savedDestination = result.payload as Destination;
-
-          onConfirm(savedDestination);
-        } else {
-          throw new Error(result.error?.message || "Failed to save destination");
-        }
-      } catch (error) {
-        Alert.alert("Error", "Failed to save destination. Please try again.");
-        console.error("Failed to save destination:", error);
-      } finally {
-        setIsSaving(false);
-      }
-    };
-
-    const handleCancel = () => {
-      setValidationErrors([]);
-      onCancel();
-    };
-
-    if (!coordinate) {
-      return null;
-    }
-
-    return (
-      <Modal
-        visible={visible}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={handleCancel}
-      >
-        <LinearGradient
-          colors={["rgba(130, 26, 25, 0.8)", "rgba(232, 47, 45, 0.48)"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={styles.gradientContainer}
-        >
-          <SafeAreaView style={styles.safeArea}>
-            {/* Header */}
-            <View style={styles.header}>
-              <Text style={styles.title}>Confirm Destination</Text>
-              <TouchableOpacity style={styles.closeButton} onPress={handleCancel}>
-                <Text style={styles.closeButtonText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView
-              style={styles.scrollArea}
-              contentContainerStyle={styles.content}
-              keyboardShouldPersistTaps="handled"
-            >
-              {/* Destination Name Input */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Destination Name</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={destinationName}
-                  onChangeText={setDestinationName}
-                  placeholder="Enter destination name"
-                  placeholderTextColor="rgba(255,255,255,0.6)"
-                  maxLength={100}
-                  autoCapitalize="words"
-                />
-              </View>
-
-              {/* Address Display */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Address</Text>
-                {isLoadingAddress ? (
-                  <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="small" color="#fff" />
-                    <Text style={styles.loadingText}>Loading address...</Text>
-                  </View>
-                ) : (
-                  <Text style={styles.addressText}>{address}</Text>
-                )}
-              </View>
-
-              {/* Coordinate Display */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Coordinates</Text>
-                <Text style={styles.coordinateText}>
-                  {formatCoordinate(coordinate, 6)}
-                </Text>
-              </View>
-
-              {/* Add to Favourites Checkbox */}
-              <View style={styles.favouriteContainer}>
-                <TouchableOpacity
-                  style={styles.favouriteToggle}
-                  onPress={() => setAddToFavourites(!addToFavourites)}
-                >
-                  <View
-                    style={[
-                      styles.checkbox,
-                      addToFavourites && styles.checkboxChecked,
-                    ]}
-                  >
-                    {addToFavourites && <Text style={styles.checkmark}>✓</Text>}
-                  </View>
-                  <Text style={styles.favouriteLabel}>Add to Favourites</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Validation Errors */}
-              {validationErrors.length > 0 && (
-                <View style={styles.errorContainer}>
-                  {validationErrors.map((error, index) => (
-                    <Text key={index} style={styles.errorText}>
-                      • {error}
-                    </Text>
-                  ))}
-                </View>
-              )}
-            </ScrollView>
-
-            {/* Action Buttons */}
-            <View style={styles.buttonContainer}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={handleCancel}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.confirmButton,
-                  (validationErrors.length > 0 || isSaving) &&
-                  styles.disabledButton,
-                ]}
-                onPress={handleConfirm}
-                disabled={validationErrors.length > 0 || isSaving}
-              >
-                {isSaving ? (
-                  <ActivityIndicator size="small" color="white" />
-                ) : (
-                  <Text style={styles.confirmButtonText}>Set Alarm</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </SafeAreaView>
-        </LinearGradient>
-      </Modal>
+  const clearNameValidationErrors = () => {
+    setValidationErrors((prev) =>
+      prev.filter((error) => !error.toLowerCase().includes("name")),
     );
   };
+
+  const handleDestinationNameChange = (value: string) => {
+    setDestinationName(value);
+    clearNameValidationErrors();
+  };
+
+  // Reset state when modal opens/closes
+  useEffect(() => {
+    if (visible && coordinate) {
+      // Use provided initial values or defaults
+      setDestinationName(initialName || "Selected Location");
+      setAddress(initialAddress || formatCoordinate(coordinate));
+      setAddToFavourites(false);
+      setValidationErrors([]);
+
+      // Only load address from coordinate if not already provided
+      if (!initialAddress) {
+        const requestId = ++latestAddressRequestIdRef.current;
+        loadAddressFromCoordinate(coordinate, requestId);
+      } else {
+        latestAddressRequestIdRef.current += 1;
+        // Address already provided, no need to reverse geocode
+        setIsLoadingAddress(false);
+      }
+    } else if (!visible) {
+      latestAddressRequestIdRef.current += 1;
+      // Reset state when modal closes
+      setDestinationName("");
+      setAddress("");
+      setAddToFavourites(false);
+      setValidationErrors([]);
+      setIsLoadingAddress(false);
+    }
+  }, [visible, coordinate, initialName, initialAddress]);
+
+  /**
+   * Load address from coordinate using reverse geocoding
+   */
+  const loadAddressFromCoordinate = async (
+    coord: Coordinate,
+    requestId: number,
+  ) => {
+    if (requestId === latestAddressRequestIdRef.current) {
+      setIsLoadingAddress(true);
+    }
+
+    try {
+      const result = await nominatimService.reverseGeocode(coord);
+
+      if (requestId !== latestAddressRequestIdRef.current) {
+        return;
+      }
+
+      if (result) {
+        // Update address with the geocoded result
+        setAddress(result.address);
+        setValidationErrors([]);
+
+        // Use the location name as destination name if available
+        if (result.displayName) {
+          setDestinationName(result.displayName);
+        }
+      } else {
+        // Fallback to coordinates if no address found
+        setAddress(formatCoordinate(coord));
+      }
+    } catch (error) {
+      if (requestId !== latestAddressRequestIdRef.current) {
+        return;
+      }
+
+      console.warn("Failed to reverse geocode coordinate:", error);
+      // Keep the coordinate format as fallback
+      setAddress(formatCoordinate(coord));
+    } finally {
+      if (requestId === latestAddressRequestIdRef.current) {
+        setIsLoadingAddress(false);
+      }
+    }
+  };
+
+  const validateInput = (): boolean => {
+    if (!coordinate) {
+      setValidationErrors(["Invalid coordinate"]);
+      return false;
+    }
+
+    const destination: Partial<Destination> = {
+      name: destinationName,
+      coordinate,
+      address,
+    };
+
+    const validation = validateDestination(destination);
+    setValidationErrors(validation.errors);
+    return validation.isValid;
+  };
+
+  const handleConfirm = async () => {
+    if (!validateInput() || !coordinate) {
+      return;
+    }
+
+    // If addToFavourites is checked, save and then set alarm
+    if (addToFavourites) {
+      await handleSaveAndConfirm();
+    } else {
+      // Just set alarm without saving
+      const destination: Destination = {
+        id: generateId("dest"),
+        name: sanitizeDestinationName(destinationName),
+        coordinate,
+        address: address.trim() || undefined,
+        createdAt: new Date().toISOString(),
+      };
+
+      onConfirm(destination);
+    }
+  };
+
+  const handleSaveAndConfirm = async () => {
+    if (!validateInput() || !coordinate) {
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const destinationData = {
+        name: sanitizeDestinationName(destinationName),
+        coordinate,
+        address: address.trim() || undefined,
+      };
+
+      const result = await dispatch(saveDestination(destinationData) as any);
+
+      if (result.type === "destinations/save/fulfilled") {
+        const savedDestination = result.payload as Destination;
+
+        onConfirm(savedDestination);
+      } else {
+        throw new Error(result.error?.message || "Failed to save destination");
+      }
+    } catch (error) {
+      Alert.alert("Error", "Failed to save destination. Please try again.");
+      console.error("Failed to save destination:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setValidationErrors([]);
+    onCancel();
+  };
+
+  if (!coordinate) {
+    return null;
+  }
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={handleCancel}
+    >
+      <LinearGradient
+        colors={["rgba(130, 26, 25, 0.8)", "rgba(232, 47, 45, 0.48)"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={styles.gradientContainer}
+      >
+        <SafeAreaView style={styles.safeArea}>
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.title}>Confirm Destination</Text>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={handleCancel}
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+              accessibilityHint="Closes the modal"
+              hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+            >
+              <Text style={styles.closeButtonText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView
+            style={styles.scrollArea}
+            contentContainerStyle={styles.content}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Destination Name Input */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Destination Name</Text>
+              <TextInput
+                style={styles.textInput}
+                value={destinationName}
+                onChangeText={handleDestinationNameChange}
+                placeholder="Enter destination name"
+                placeholderTextColor="rgba(255,255,255,0.6)"
+                maxLength={100}
+                autoCapitalize="words"
+              />
+            </View>
+
+            {/* Address Display */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Address</Text>
+              {isLoadingAddress ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color="#fff" />
+                  <Text style={styles.loadingText}>Loading address...</Text>
+                </View>
+              ) : (
+                <Text style={styles.addressText}>{address}</Text>
+              )}
+            </View>
+
+            {/* Coordinate Display */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Coordinates</Text>
+              <Text style={styles.coordinateText}>
+                {formatCoordinate(coordinate, 6)}
+              </Text>
+            </View>
+
+            {/* Add to Favourites Checkbox */}
+            <View style={styles.favouriteContainer}>
+              <TouchableOpacity
+                style={styles.favouriteToggle}
+                onPress={() => setAddToFavourites(!addToFavourites)}
+              >
+                <View
+                  style={[
+                    styles.checkbox,
+                    addToFavourites && styles.checkboxChecked,
+                  ]}
+                >
+                  {addToFavourites && <Text style={styles.checkmark}>✓</Text>}
+                </View>
+                <Text style={styles.favouriteLabel}>Add to Favourites</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Validation Errors */}
+            {validationErrors.length > 0 && (
+              <View style={styles.errorContainer}>
+                {validationErrors.map((error, index) => (
+                  <Text key={index} style={styles.errorText}>
+                    • {error}
+                  </Text>
+                ))}
+              </View>
+            )}
+          </ScrollView>
+
+          {/* Action Buttons */}
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={handleCancel}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.confirmButton,
+                (validationErrors.length > 0 || isSaving) &&
+                  styles.disabledButton,
+              ]}
+              onPress={handleConfirm}
+              disabled={validationErrors.length > 0 || isSaving}
+            >
+              {isSaving ? (
+                <ActivityIndicator size="small" color="white" />
+              ) : (
+                <Text style={styles.confirmButtonText}>Set Alarm</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
+    </Modal>
+  );
+};
 
 const styles = StyleSheet.create({
   gradientContainer: {
@@ -328,9 +368,9 @@ const styles = StyleSheet.create({
     color: "#fff",
   },
   closeButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    minWidth: 44,
+    minHeight: 44,
+    borderRadius: 22,
     backgroundColor: "rgba(255,255,255,0.2)",
     justifyContent: "center",
     alignItems: "center",

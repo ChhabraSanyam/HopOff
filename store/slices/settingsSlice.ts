@@ -2,16 +2,17 @@
 import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { storageManager } from "../../services/StorageManager";
 import { UserSettings } from "../../types";
-import { validateUserSettings } from "../../utils";
+import {
+  validateUserSettings,
+  createDefaultUserSettings,
+  getNearestValidTriggerRadius,
+} from "../../utils";
 
 const initialState: UserSettings & {
   isLoading: boolean;
   error: string | null;
 } = {
-  defaultTriggerRadius: 500, // 500m default
-  vibrationEnabled: true,
-  persistentNotificationEnabled: true,
-  batteryOptimizationEnabled: true,
+  ...createDefaultUserSettings(),
   isLoading: false,
   error: null,
 };
@@ -76,10 +77,7 @@ const settingsSlice = createSlice({
       state.error = null;
     },
     resetSettings: (state) => {
-      state.defaultTriggerRadius = 500;
-      state.vibrationEnabled = true;
-      state.persistentNotificationEnabled = true;
-      state.batteryOptimizationEnabled = true;
+      Object.assign(state, createDefaultUserSettings());
       state.error = null;
     },
     clearError: (state) => {
@@ -96,6 +94,10 @@ const settingsSlice = createSlice({
       .addCase(loadSettings.fulfilled, (state, action) => {
         state.isLoading = false;
         Object.assign(state, action.payload);
+        // Snap radius to nearest valid option in case a stale/invalid value was persisted
+        state.defaultTriggerRadius = getNearestValidTriggerRadius(
+          state.defaultTriggerRadius,
+        );
         state.error = null;
       })
       .addCase(loadSettings.rejected, (state, action) => {

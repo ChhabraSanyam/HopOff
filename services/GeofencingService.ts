@@ -9,6 +9,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
 import { Coordinate } from "../types";
+import { generateId, isValidCoordinate } from "../utils";
 
 // Task name for geofencing background task
 const GEOFENCING_TASK = "hopoff-geofencing-task";
@@ -228,7 +229,7 @@ class GeofencingService {
       await this.initialize();
 
       // Validate coordinates
-      if (!this.isValidCoordinate(destination)) {
+      if (!isValidCoordinate(destination)) {
         throw new GeofenceServiceError(
           GeofenceError.INVALID_COORDINATES,
           "Invalid destination coordinates",
@@ -274,9 +275,7 @@ class GeofencingService {
       }
 
       // Generate unique ID
-      const geofenceId =
-        customId ||
-        `geofence_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const geofenceId = customId || generateId("geofence");
 
       // Create the region
       const region: Location.LocationRegion = {
@@ -463,22 +462,6 @@ class GeofencingService {
         console.error("Error during cleanup:", error);
       }
     }
-  }
-
-  /**
-   * Validate coordinate values
-   */
-  private isValidCoordinate(coordinate: Coordinate): boolean {
-    return (
-      typeof coordinate.latitude === "number" &&
-      typeof coordinate.longitude === "number" &&
-      coordinate.latitude >= -90 &&
-      coordinate.latitude <= 90 &&
-      coordinate.longitude >= -180 &&
-      coordinate.longitude <= 180 &&
-      !isNaN(coordinate.latitude) &&
-      !isNaN(coordinate.longitude)
-    );
   }
 }
 

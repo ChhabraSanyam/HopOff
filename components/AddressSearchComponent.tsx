@@ -48,7 +48,6 @@ const AddressSearchComponent: React.FC<AddressSearchComponentProps> = ({
     error: null,
     showResults: false,
   });
-  const [isFocused, setIsFocused] = useState(false);
 
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -128,18 +127,6 @@ const AddressSearchComponent: React.FC<AddressSearchComponentProps> = ({
     },
     [performSearch],
   );
-
-  // Reset state every time the component mounts (modal reopened)
-  useEffect(() => {
-    setSearchState({
-      query: "",
-      results: [],
-      isLoading: false,
-      error: null,
-      showResults: false,
-    });
-    setIsFocused(false);
-  }, []);
 
   // Cleanup timer on unmount
   useEffect(() => {
@@ -266,8 +253,6 @@ const AddressSearchComponent: React.FC<AddressSearchComponentProps> = ({
           placeholderTextColor="rgba(255,255,255,0.6)"
           autoFocus
           returnKeyType="search"
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
           onSubmitEditing={() => performSearch(searchState.query)}
         />
         {searchState.query.length > 0 && (
@@ -329,7 +314,11 @@ const AddressSearchComponent: React.FC<AddressSearchComponentProps> = ({
         </View>
       )}
 
-
+      <View style={styles.attributionContainer}>
+        <Text style={styles.attributionText}>
+          Search powered by OpenStreetMap Nominatim © OpenStreetMap contributors
+        </Text>
+      </View>
     </View>
   );
 };
@@ -514,6 +503,17 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.6)",
     textAlign: "center",
     marginTop: 6,
+  },
+  attributionContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.12)",
+  },
+  attributionText: {
+    fontSize: 11,
+    color: "rgba(255,255,255,0.65)",
+    textAlign: "center",
   },
 });
 

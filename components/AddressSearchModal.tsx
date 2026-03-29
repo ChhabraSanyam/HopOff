@@ -8,6 +8,7 @@ import {
   loadSearchHistory,
 } from "../store/slices/destinationSlice";
 import { AddressSearchResult, Destination } from "../types";
+import { generateId } from "../utils";
 import AddressSearchComponent from "./AddressSearchComponent";
 
 interface AddressSearchModalProps {
@@ -34,7 +35,7 @@ const AddressSearchModal: React.FC<AddressSearchModalProps> = ({
   const handleSelectResult = (result: AddressSearchResult) => {
     // Convert AddressSearchResult to Destination
     const destination: Destination = {
-      id: `search_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: generateId("search"),
       name: result.displayName,
       coordinate: result.coordinate,
       address: result.address,
