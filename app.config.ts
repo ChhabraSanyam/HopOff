@@ -30,17 +30,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
     package: "com.hopoff.app",
-    permissions: [
-      "ACCESS_COARSE_LOCATION",
-      "ACCESS_FINE_LOCATION",
-      "ACCESS_BACKGROUND_LOCATION",
-      "FOREGROUND_SERVICE",
-      "FOREGROUND_SERVICE_LOCATION",
-      "POST_NOTIFICATIONS",
-      "VIBRATE",
-      "WAKE_LOCK",
-      "RECEIVE_BOOT_COMPLETED",
-    ],
   },
   plugins: [
     "expo-router",
