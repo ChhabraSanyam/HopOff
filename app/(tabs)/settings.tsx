@@ -27,6 +27,7 @@ import {
 } from "../../store/slices/settingsSlice";
 import { UserSettings, VALIDATION_CONSTANTS } from "../../types";
 import { validateUserSettings } from "../../utils";
+import { haptics } from "../../utils/Haptics";
 
 const BRAND = "#b9221d";
 const GRADIENT: [string, string, string] = [
@@ -201,10 +202,12 @@ const SettingsScreen: React.FC = () => {
   }, [dispatch]);
 
   const handleSettingChange = (key: keyof UserSettings, value: any) => {
+    haptics.selection();
     dispatch(updateSettings({ [key]: value }));
   };
 
   const handleSaveSettings = async () => {
+    haptics.medium();
     const settingsToSave = {
       defaultTriggerRadius: settings.defaultTriggerRadius,
       vibrationEnabled: settings.vibrationEnabled,
@@ -239,6 +242,7 @@ const SettingsScreen: React.FC = () => {
   };
 
   const handleResetSettings = () => {
+    haptics.warning();
     showModal(
       "Reset Settings",
       "Are you sure you want to reset all settings to default values?",
@@ -264,6 +268,7 @@ const SettingsScreen: React.FC = () => {
   };
 
   const openNotificationSettings = async () => {
+    haptics.light();
     try {
       await Linking.openSettings();
     } catch {
@@ -319,7 +324,10 @@ const SettingsScreen: React.FC = () => {
             <View style={styles.errorContainer}>
               <Text style={styles.errorText}>{settings.error}</Text>
               <TouchableOpacity
-                onPress={() => dispatch(clearError())}
+                onPress={() => {
+                  haptics.selection();
+                  dispatch(clearError());
+                }}
                 style={styles.errorDismiss}
               >
                 <Text style={styles.errorDismissText}>Dismiss</Text>
@@ -410,11 +418,13 @@ const SettingsScreen: React.FC = () => {
               </View>
             </TouchableOpacity>
             <View style={styles.soundInfoContainer}>
-              <Ionicons
-                name="information-circle-outline"
-                size={16}
-                color="rgba(255,255,255,0.5)"
-              />
+              <View style={styles.soundInfoIconWrapper}>
+                <Ionicons
+                  name="information-circle-outline"
+                  size={16}
+                  color="rgba(255,255,255,0.5)"
+                />
+              </View>
               <Text style={styles.soundInfoText}>
                 {Platform.OS === "android"
                   ? 'In notification settings, select "Destination Alarms" channel to change the sound'
@@ -621,6 +631,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: "rgba(0,0,0,0.1)",
     gap: 8,
+  },
+  soundInfoIconWrapper: {
+    height: 18,
+    justifyContent: "center",
   },
   soundInfoText: {
     flex: 1,

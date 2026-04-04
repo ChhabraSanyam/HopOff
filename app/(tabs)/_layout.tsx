@@ -1,9 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
 import { Tabs } from "expo-router";
 import React from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { haptics } from "../../utils/Haptics";
 
 const BRAND = "#b9221d";
 
@@ -27,7 +27,7 @@ function TabIcon({
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
-  const extraPad = 14;
+  const extraPad = 16;
 
   return (
     <Tabs
@@ -39,7 +39,7 @@ export default function TabLayout() {
           borderTopWidth: 0,
           elevation: 0,
           paddingBottom: insets.bottom + extraPad,
-          paddingTop: 14,
+          paddingTop: 15,
           height: 68 + insets.bottom + extraPad,
           position: "absolute",
         },
@@ -57,7 +57,7 @@ export default function TabLayout() {
           <Pressable
             {...props}
             onPress={(e) => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              haptics.medium();
               props.onPress?.(e);
             }}
           />

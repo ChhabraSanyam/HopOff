@@ -1,6 +1,7 @@
 // Reusable themed confirmation modal matching the app's red gradient design
 import React from "react";
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { haptics } from "../utils/Haptics";
 
 interface ConfirmModalProps {
   visible: boolean;
@@ -49,7 +50,10 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
               <>
                 <TouchableOpacity
                   style={styles.cancelButton}
-                  onPress={onCancel}
+                  onPress={() => {
+                    haptics.selection();
+                    onCancel();
+                  }}
                 >
                   <Text style={styles.cancelButtonText}>{cancelLabel}</Text>
                 </TouchableOpacity>
@@ -63,7 +67,14 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
                 styles.confirmButton,
                 destructive && styles.destructiveButton,
               ]}
-              onPress={onConfirm}
+              onPress={() => {
+                if (destructive) {
+                  haptics.warning();
+                } else {
+                  haptics.medium();
+                }
+                onConfirm();
+              }}
             >
               <Text
                 style={[

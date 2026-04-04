@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Alarm, Coordinate } from "../types";
+import { haptics } from "../utils/Haptics";
 
 interface AlarmStatusCardProps {
   alarm: Alarm;
@@ -104,7 +105,10 @@ const AlarmStatusCard: React.FC<AlarmStatusCardProps> = ({
 
         <TouchableOpacity
           style={styles.cancelCircle}
-          onPress={onCancel}
+          onPress={() => {
+            haptics.light();
+            onCancel();
+          }}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           accessibilityRole="button"
           accessibilityLabel="Cancel alarm"

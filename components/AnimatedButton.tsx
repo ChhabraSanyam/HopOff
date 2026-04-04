@@ -1,13 +1,14 @@
 import React, { useRef } from "react";
 import {
-  TouchableOpacity,
-  Text,
-  StyleSheet,
   Animated,
-  ViewStyle,
-  TextStyle,
   GestureResponderEvent,
+  StyleSheet,
+  Text,
+  TextStyle,
+  TouchableOpacity,
+  ViewStyle,
 } from "react-native";
+import { haptics } from "../utils/Haptics";
 
 interface AnimatedButtonProps {
   title: string;
@@ -108,9 +109,14 @@ const AnimatedButton: React.FC<AnimatedButtonProps> = ({
     return baseStyle;
   };
 
+  const handlePress = (event: GestureResponderEvent) => {
+    haptics.light();
+    onPress(event);
+  };
+
   return (
     <TouchableOpacity
-      onPress={onPress}
+      onPress={handlePress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       disabled={disabled || loading}

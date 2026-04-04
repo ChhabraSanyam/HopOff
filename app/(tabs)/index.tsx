@@ -34,6 +34,7 @@ import {
 } from "../../store/slices/locationSlice";
 import { setSelectedDestination } from "../../store/slices/uiSlice";
 import { AlarmSettings, Coordinate, Destination } from "../../types";
+import { haptics } from "../../utils/Haptics";
 
 const MapScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -310,7 +311,10 @@ const MapScreen: React.FC = () => {
         {/* Left: locate / fit markers */}
         <TouchableOpacity
           style={styles.headerBtn}
-          onPress={handleLocatePress}
+          onPress={() => {
+            haptics.light();
+            handleLocatePress();
+          }}
           disabled={isLoadingLocation}
           accessibilityRole="button"
           accessibilityLabel="Locate me"
@@ -323,7 +327,10 @@ const MapScreen: React.FC = () => {
         {/* Right: search */}
         <TouchableOpacity
           style={styles.headerBtn}
-          onPress={() => setShowAddressSearch(true)}
+          onPress={() => {
+            haptics.light();
+            setShowAddressSearch(true);
+          }}
           disabled={isLoadingLocation}
           accessibilityRole="button"
           accessibilityLabel="Open address search"
