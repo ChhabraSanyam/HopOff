@@ -17,15 +17,6 @@ export interface NominatimSearchOptions {
   acceptLanguage?: string;
 }
 
-interface StructuredSearchQuery {
-  street?: string;
-  city?: string;
-  county?: string;
-  state?: string;
-  country?: string;
-  postalcode?: string;
-}
-
 export interface NominatimService {
   searchAddress(
     query: string,
@@ -518,7 +509,6 @@ export class NominatimServiceImpl implements NominatimService {
     const countryCodes = (options.countryCodes || [])
       .map((code) => code.trim().toLowerCase())
       .filter((code) => /^[a-z]{2}$/.test(code));
-    const structuredQuery = this.parseStructuredQuery(query);
 
     const searchParams = new URLSearchParams({
       format: "jsonv2",
@@ -527,14 +517,9 @@ export class NominatimServiceImpl implements NominatimService {
       extratags: "0",
       namedetails: "0",
       dedupe: "1",
+      q: query,
       "accept-language": options.acceptLanguage || "en",
     });
-
-    if (structuredQuery) {
-      this.applyStructuredQuery(searchParams, structuredQuery);
-    } else {
-      searchParams.set("q", query);
-    }
 
     if (options.viewbox) {
       searchParams.set(
@@ -550,75 +535,6 @@ export class NominatimServiceImpl implements NominatimService {
     }
 
     return searchParams;
-  }
-
-  private applyStructuredQuery(
-    searchParams: URLSearchParams,
-    structuredQuery: StructuredSearchQuery,
-  ): void {
-    const structuredEntries = Object.entries(structuredQuery) as [
-      keyof StructuredSearchQuery,
-      string | undefined,
-    ][];
-
-    for (const [key, value] of structuredEntries) {
-      if (value && value.trim().length > 0) {
-        searchParams.set(key, value.trim());
-      }
-    }
-  }
-
-  private parseStructuredQuery(query: string): StructuredSearchQuery | null {
-    const parts = query
-      .split(",")
-      .map((part) => part.trim())
-      .filter(Boolean);
-
-    if (parts.length < 2) {
-      return null;
-    }
-
-    const postalcodeMatch = query.match(/\b\d{4,6}\b/);
-    const structured: StructuredSearchQuery = {};
-
-    if (this.looksLikeStreet(parts[0])) {
-      structured.street = parts[0];
-      if (parts[1]) {
-        structured.city = parts[1];
-      }
-      if (parts[2]) {
-        structured.state = parts[2];
-      }
-    } else {
-      structured.city = parts[0];
-      if (parts[1]) {
-        structured.state = parts[1];
-      }
-      if (parts[2]) {
-        structured.country = parts[2];
-      }
-    }
-
-    if (parts.length >= 4) {
-      structured.country = parts[parts.length - 1];
-    }
-
-    if (postalcodeMatch) {
-      structured.postalcode = postalcodeMatch[0];
-    }
-
-    const nonEmptyFieldCount = Object.values(structured).filter(Boolean).length;
-    return nonEmptyFieldCount >= 2 ? structured : null;
-  }
-
-  private looksLikeStreet(value: string): boolean {
-    const hasStreetNumber = /\d/.test(value);
-    const hasStreetKeyword =
-      /\b(street|st|road|rd|avenue|ave|lane|ln|boulevard|blvd|marg|nagar|colony)\b/i.test(
-        value,
-      );
-
-    return hasStreetNumber || hasStreetKeyword;
   }
 
   private computeResultScore(
