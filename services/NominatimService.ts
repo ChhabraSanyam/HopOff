@@ -17,6 +17,15 @@ export interface NominatimSearchOptions {
   acceptLanguage?: string;
 }
 
+interface StructuredSearchQuery {
+  street?: string;
+  city?: string;
+  county?: string;
+  state?: string;
+  country?: string;
+  postalcode?: string;
+}
+
 export interface NominatimService {
   searchAddress(
     query: string,
@@ -92,93 +101,49 @@ export class NominatimServiceImpl implements NominatimService {
         return cached.results;
       }
 
-      // Respect rate limiting
-      await this.respectRateLimit();
-
       const effectiveViewbox =
         options.viewbox ??
         (options.userLocation
           ? this.createViewboxFromLocation(options.userLocation)
           : undefined);
 
-      const countryCodes = (options.countryCodes || [])
-        .map((code) => code.trim().toLowerCase())
-        .filter((code) => /^[a-z]{2}$/.test(code));
+      const effectiveOptions: NominatimSearchOptions = {
+        ...options,
+        viewbox: effectiveViewbox,
+      };
 
-      const searchParams = new URLSearchParams({
-        q: trimmedQuery,
-        format: "jsonv2",
-        limit: Math.min(limit, 10).toString(), // Cap at 10 results
-        addressdetails: "1",
-        extratags: "0",
-        namedetails: "0",
-        dedupe: "1",
-        "accept-language": options.acceptLanguage || "en",
-      });
+      const searchData = await this.fetchSearchResults(
+        trimmedQuery,
+        Math.min(limit, 10),
+        effectiveOptions,
+      );
 
-      if (effectiveViewbox) {
-        searchParams.set(
-          "viewbox",
-          `${effectiveViewbox.west},${effectiveViewbox.north},${effectiveViewbox.east},${effectiveViewbox.south}`,
-        );
-        searchParams.set("bounded", options.bounded ? "1" : "0");
-      }
+      const results = searchData.map((item, index) =>
+        this.convertNominatimResult(item, index),
+      );
 
-      if (countryCodes.length > 0) {
-        searchParams.set("countrycodes", countryCodes.join(","));
-      }
+      const rankedResults = this.rankSearchResults(
+        results,
+        trimmedQuery,
+        effectiveOptions,
+      );
 
-      const url = `${this.baseUrl}/search?${searchParams.toString()}`;
-
-      const response = await this.makeRequest(url);
-
-      if (!response.ok) {
-        if (response.status === 429 || response.status === 509) {
-          throw new NominatimServiceError(
-            NominatimError.RATE_LIMITED,
-            "Too many requests. Please wait a moment and try again.",
-          );
-        }
-        throw new NominatimServiceError(
-          NominatimError.SERVICE_UNAVAILABLE,
-          `Nominatim service returned status ${response.status}`,
-        );
-      }
-
-      const data: NominatimResult[] = await response.json();
-
-      if (!Array.isArray(data)) {
-        throw new NominatimServiceError(
-          NominatimError.INVALID_RESPONSE,
-          "Invalid response format from Nominatim service",
-        );
-      }
-
-      if (data.length === 0) {
+      if (rankedResults.length === 0) {
         throw new NominatimServiceError(
           NominatimError.NO_RESULTS,
           `No results found for "${trimmedQuery}"`,
         );
       }
 
-      // Convert Nominatim results to our format
-      const results = data.map((item, index) =>
-        this.convertNominatimResult(item, index),
-      );
-
-      // Rank using textual relevance + location + type preference + global importance
-      const rankedResults = this.rankSearchResults(results, trimmedQuery, {
-        ...options,
-        viewbox: effectiveViewbox,
-      });
+      const finalResults = rankedResults.slice(0, Math.min(limit, 10));
 
       // Cache the results
       this.searchCache.set(cacheKey, {
-        results: rankedResults,
+        results: finalResults,
         timestamp: Date.now(),
       });
 
-      return rankedResults;
+      return finalResults;
     } catch (error) {
       if (error instanceof NominatimServiceError) {
         throw error;
@@ -458,6 +423,153 @@ export class NominatimServiceImpl implements NominatimService {
     });
   }
 
+  private async fetchSearchResults(
+    query: string,
+    limit: number,
+    options: NominatimSearchOptions,
+  ): Promise<NominatimResult[]> {
+    await this.respectRateLimit();
+
+    const searchParams = this.buildSearchParams(query, limit, options);
+    const url = `${this.baseUrl}/search?${searchParams.toString()}`;
+    const response = await this.makeRequest(url);
+
+    if (!response.ok) {
+      if (response.status === 429 || response.status === 509) {
+        throw new NominatimServiceError(
+          NominatimError.RATE_LIMITED,
+          "Too many requests. Please wait a moment and try again.",
+        );
+      }
+      throw new NominatimServiceError(
+        NominatimError.SERVICE_UNAVAILABLE,
+        `Nominatim service returned status ${response.status}`,
+      );
+    }
+
+    const data: NominatimResult[] = await response.json();
+
+    if (!Array.isArray(data)) {
+      throw new NominatimServiceError(
+        NominatimError.INVALID_RESPONSE,
+        "Invalid response format from Nominatim service",
+      );
+    }
+
+    return data;
+  }
+
+  private buildSearchParams(
+    query: string,
+    limit: number,
+    options: NominatimSearchOptions,
+  ): URLSearchParams {
+    const countryCodes = (options.countryCodes || [])
+      .map((code) => code.trim().toLowerCase())
+      .filter((code) => /^[a-z]{2}$/.test(code));
+    const structuredQuery = this.parseStructuredQuery(query);
+
+    const searchParams = new URLSearchParams({
+      format: "jsonv2",
+      limit: limit.toString(),
+      addressdetails: "1",
+      extratags: "0",
+      namedetails: "0",
+      dedupe: "1",
+      "accept-language": options.acceptLanguage || "en",
+    });
+
+    if (structuredQuery) {
+      this.applyStructuredQuery(searchParams, structuredQuery);
+    } else {
+      searchParams.set("q", query);
+    }
+
+    if (options.viewbox) {
+      searchParams.set(
+        "viewbox",
+        `${options.viewbox.west},${options.viewbox.north},${options.viewbox.east},${options.viewbox.south}`,
+      );
+      const bounded = options.bounded !== undefined ? options.bounded : true;
+      searchParams.set("bounded", bounded ? "1" : "0");
+    }
+
+    if (countryCodes.length > 0) {
+      searchParams.set("countrycodes", countryCodes.join(","));
+    }
+
+    return searchParams;
+  }
+
+  private applyStructuredQuery(
+    searchParams: URLSearchParams,
+    structuredQuery: StructuredSearchQuery,
+  ): void {
+    const structuredEntries = Object.entries(structuredQuery) as [
+      keyof StructuredSearchQuery,
+      string | undefined,
+    ][];
+
+    for (const [key, value] of structuredEntries) {
+      if (value && value.trim().length > 0) {
+        searchParams.set(key, value.trim());
+      }
+    }
+  }
+
+  private parseStructuredQuery(query: string): StructuredSearchQuery | null {
+    const parts = query
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean);
+
+    if (parts.length < 2) {
+      return null;
+    }
+
+    const postalcodeMatch = query.match(/\b\d{4,6}\b/);
+    const structured: StructuredSearchQuery = {};
+
+    if (this.looksLikeStreet(parts[0])) {
+      structured.street = parts[0];
+      if (parts[1]) {
+        structured.city = parts[1];
+      }
+      if (parts[2]) {
+        structured.state = parts[2];
+      }
+    } else {
+      structured.city = parts[0];
+      if (parts[1]) {
+        structured.state = parts[1];
+      }
+      if (parts[2]) {
+        structured.country = parts[2];
+      }
+    }
+
+    if (parts.length >= 4) {
+      structured.country = parts[parts.length - 1];
+    }
+
+    if (postalcodeMatch) {
+      structured.postalcode = postalcodeMatch[0];
+    }
+
+    const nonEmptyFieldCount = Object.values(structured).filter(Boolean).length;
+    return nonEmptyFieldCount >= 2 ? structured : null;
+  }
+
+  private looksLikeStreet(value: string): boolean {
+    const hasStreetNumber = /\d/.test(value);
+    const hasStreetKeyword =
+      /\b(street|st|road|rd|avenue|ave|lane|ln|boulevard|blvd|marg|nagar|colony)\b/i.test(
+        value,
+      );
+
+    return hasStreetNumber || hasStreetKeyword;
+  }
+
   private computeResultScore(
     result: AddressSearchResult,
     normalizedQuery: string,
@@ -473,14 +585,19 @@ export class NominatimServiceImpl implements NominatimService {
     } else if (haystack.includes(normalizedQuery)) {
       textScore = 0.8;
     } else if (queryTokens.length > 0) {
-      const matchedTokens = queryTokens.filter((token) => haystack.includes(token));
+      const matchedTokens = queryTokens.filter((token) =>
+        haystack.includes(token),
+      );
       textScore = matchedTokens.length / queryTokens.length;
     }
 
     let distanceScore = 0;
     if (userLocation) {
       try {
-        const distanceMeters = calculateDistance(userLocation, result.coordinate);
+        const distanceMeters = calculateDistance(
+          userLocation,
+          result.coordinate,
+        );
         const maxDistanceForScore = 25000;
         distanceScore = Math.max(0, 1 - distanceMeters / maxDistanceForScore);
       } catch {
