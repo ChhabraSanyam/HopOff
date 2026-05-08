@@ -95,16 +95,29 @@ export class NominatimServiceImpl implements NominatimService {
       }
 
       if (coordinateQuery) {
-        const result = await this.reverseGeocodeWithLanguage(
-          coordinateQuery,
-          options.acceptLanguage || "en",
-        );
+        let result: AddressSearchResult | null = null;
+
+        try {
+          result = await this.reverseGeocodeWithLanguage(
+            coordinateQuery,
+            options.acceptLanguage || "en",
+          );
+        } catch (error) {
+          if (error instanceof NominatimServiceError) {
+            console.warn(
+              "Reverse geocoding failed for coordinate search; falling back to raw coordinates:",
+              error.code,
+            );
+          } else {
+            console.warn(
+              "Unexpected reverse geocoding failure for coordinate search; falling back to raw coordinates:",
+              error,
+            );
+          }
+        }
 
         if (!result) {
-          throw new NominatimServiceError(
-            NominatimError.NO_RESULTS,
-            `No results found for coordinates "${trimmedQuery}"`,
-          );
+          result = this.createCoordinateSearchResult(coordinateQuery);
         }
 
         const finalResults = [result];
@@ -382,6 +395,27 @@ export class NominatimServiceImpl implements NominatimService {
 
     const coordinate = { latitude, longitude };
     return isValidCoordinate(coordinate) ? coordinate : null;
+  }
+
+  private createCoordinateSearchResult(
+    coordinate: Coordinate,
+  ): AddressSearchResult {
+    const formattedCoordinate = `${coordinate.latitude.toFixed(6)}, ${coordinate.longitude.toFixed(6)}`;
+
+    return {
+      id: `coordinate_${coordinate.latitude.toFixed(6)}_${coordinate.longitude.toFixed(6)}`,
+      displayName: formattedCoordinate,
+      address: formattedCoordinate,
+      coordinate,
+      importance: 0,
+      type: "coordinate",
+      boundingBox: {
+        north: coordinate.latitude,
+        south: coordinate.latitude,
+        east: coordinate.longitude,
+        west: coordinate.longitude,
+      },
+    };
   }
 
   private buildSearchCacheKey(
