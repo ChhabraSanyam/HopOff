@@ -37,7 +37,7 @@ interface SearchState {
 const AddressSearchComponent: React.FC<AddressSearchComponentProps> = ({
   onSelectResult,
   onClose,
-  placeholder = "Search for an address...",
+  placeholder = "Search for an address, place, or coordinates...",
   searchHistory = [],
   onAddToHistory,
   showHistory = true,

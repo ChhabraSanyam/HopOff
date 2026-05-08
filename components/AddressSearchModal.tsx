@@ -84,7 +84,7 @@ const AddressSearchModal: React.FC<AddressSearchModalProps> = ({
             <AddressSearchComponent
               onSelectResult={handleSelectResult}
               onClose={onClose}
-              placeholder="Search for an address or place..."
+              placeholder="Search for an address, place, or coordinates..."
               searchHistory={searchHistory}
               onAddToHistory={handleAddToHistory}
               showHistory={true}

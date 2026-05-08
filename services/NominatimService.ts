@@ -94,11 +94,36 @@ export class NominatimServiceImpl implements NominatimService {
 
       const trimmedQuery = this.normalizeQuery(query);
 
+      const coordinateQuery = this.parseCoordinateQuery(trimmedQuery);
+
       // Check cache first
       const cacheKey = this.buildSearchCacheKey(trimmedQuery, limit, options);
       const cached = this.searchCache.get(cacheKey);
       if (cached && Date.now() - cached.timestamp < this.cacheExpiry) {
         return cached.results;
+      }
+
+      if (coordinateQuery) {
+        const result = await this.reverseGeocodeWithLanguage(
+          coordinateQuery,
+          options.acceptLanguage || "en",
+        );
+
+        if (!result) {
+          throw new NominatimServiceError(
+            NominatimError.NO_RESULTS,
+            `No results found for coordinates "${trimmedQuery}"`,
+          );
+        }
+
+        const finalResults = [result];
+
+        this.searchCache.set(cacheKey, {
+          results: finalResults,
+          timestamp: Date.now(),
+        });
+
+        return finalResults;
       }
 
       const effectiveViewbox =
@@ -176,6 +201,13 @@ export class NominatimServiceImpl implements NominatimService {
   async reverseGeocode(
     coordinate: Coordinate,
   ): Promise<AddressSearchResult | null> {
+    return this.reverseGeocodeWithLanguage(coordinate, "en");
+  }
+
+  private async reverseGeocodeWithLanguage(
+    coordinate: Coordinate,
+    acceptLanguage: string,
+  ): Promise<AddressSearchResult | null> {
     try {
       // Validate coordinate
       if (!isValidCoordinate(coordinate)) {
@@ -203,7 +235,7 @@ export class NominatimServiceImpl implements NominatimService {
         extratags: "1",
         namedetails: "1",
         zoom: "18", // High zoom for detailed address
-        "accept-language": "en",
+        "accept-language": acceptLanguage,
       });
 
       const url = `${this.baseUrl}/reverse?${searchParams.toString()}`;
@@ -340,6 +372,25 @@ export class NominatimServiceImpl implements NominatimService {
 
   private normalizeQuery(query: string): string {
     return query.trim().replace(/\s+/g, " ");
+  }
+
+  private parseCoordinateQuery(query: string): Coordinate | null {
+    const cleanedQuery = query.replace(/[()]/g, " ").trim();
+    const parts = cleanedQuery.split(/[\s,]+/).filter(Boolean);
+
+    if (parts.length !== 2) {
+      return null;
+    }
+
+    const latitude = Number(parts[0]);
+    const longitude = Number(parts[1]);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      return null;
+    }
+
+    const coordinate = { latitude, longitude };
+    return isValidCoordinate(coordinate) ? coordinate : null;
   }
 
   private buildSearchCacheKey(
