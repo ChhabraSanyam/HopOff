@@ -62,6 +62,12 @@ export class NotificationManagerImpl implements NotificationManager {
     this.initializeNotificationChannels();
   }
 
+  // Public initializer to ensure channels are created when module may not be imported
+  // through background services (e.g. when user opens Settings before any alarm).
+  async init(): Promise<void> {
+    await this.initializeNotificationChannels();
+  }
+
   private async initializeNotificationChannels(): Promise<void> {
     if (this.isInitialized) return;
 

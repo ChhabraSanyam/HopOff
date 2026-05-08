@@ -5,6 +5,7 @@ import React, { useRef, useState } from "react";
 import {
   Alert,
   Dimensions,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,6 +15,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import ConfirmModal from "../../components/ConfirmModal";
 import LoadingSpinner from "../../components/LoadingSpinner";
+import { notificationManager } from "../../services/NotificationManager";
 import { useAppDispatch } from "../../store/hooks";
 import { requestLocationPermission } from "../../store/slices/locationSlice";
 import { requestNotificationPermission } from "../../store/slices/uiSlice";
@@ -38,8 +40,15 @@ const OnboardingScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   const [showSkipModal, setShowSkipModal] = useState(false);
+  const [showLocationInstructionModal, setShowLocationInstructionModal] =
+    useState(false);
 
   const handleLocationPermission = async () => {
+    // Show an instruction modal before requesting permission
+    setShowLocationInstructionModal(true);
+  };
+
+  const requestLocationPermissionInternal = async () => {
     try {
       setIsLoading(true);
       const status = await dispatch(requestLocationPermission()).unwrap();
@@ -70,6 +79,16 @@ const OnboardingScreen: React.FC = () => {
       const status = await dispatch(requestNotificationPermission()).unwrap();
 
       if (status === "granted") {
+        // Ensure Android notification channels are created once after permissions are granted
+        // so the "Destination Alarms" channel exists before users open system settings.
+        if (Platform.OS === "android") {
+          try {
+            await notificationManager.init();
+          } catch (e) {
+            // Non-fatal - proceed even if channel creation fails
+            console.warn("Failed to initialize notification channels:", e);
+          }
+        }
         setCompletedSteps((prev) => new Set([...prev, 2]));
       } else {
         Alert.alert(
@@ -336,6 +355,21 @@ const OnboardingScreen: React.FC = () => {
           handleFinish();
         }}
         onCancel={() => setShowSkipModal(false)}
+      />
+
+      <ConfirmModal
+        visible={showLocationInstructionModal}
+        title="Background Location"
+        message={
+          "Select 'Allow all the time' or 'Always' to enable background tracking."
+        }
+        cancelLabel="Cancel"
+        confirmLabel="Continue"
+        onConfirm={async () => {
+          setShowLocationInstructionModal(false);
+          await requestLocationPermissionInternal();
+        }}
+        onCancel={() => setShowLocationInstructionModal(false)}
       />
     </SafeAreaView>
   );
