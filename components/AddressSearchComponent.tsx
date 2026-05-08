@@ -14,7 +14,7 @@ import {
   nominatimService,
   NominatimServiceError,
 } from "../services/NominatimService";
-import { AddressSearchResult, SearchHistoryItem } from "../types";
+import { AddressSearchResult, Coordinate, SearchHistoryItem } from "../types";
 
 interface AddressSearchComponentProps {
   onSelectResult: (result: AddressSearchResult) => void;
@@ -23,6 +23,7 @@ interface AddressSearchComponentProps {
   searchHistory?: SearchHistoryItem[];
   onAddToHistory?: (query: string, result: AddressSearchResult) => void;
   showHistory?: boolean;
+  currentLocation?: Coordinate | null;
 }
 
 interface SearchState {
@@ -40,6 +41,7 @@ const AddressSearchComponent: React.FC<AddressSearchComponentProps> = ({
   searchHistory = [],
   onAddToHistory,
   showHistory = true,
+  currentLocation = null,
 }) => {
   const [searchState, setSearchState] = useState<SearchState>({
     query: "",
@@ -50,65 +52,114 @@ const AddressSearchComponent: React.FC<AddressSearchComponentProps> = ({
   });
 
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestSearchRequestIdRef = useRef(0);
+
+  const getAcceptLanguage = useCallback((): string => {
+    const locale = Intl.DateTimeFormat().resolvedOptions().locale;
+    if (!locale) {
+      return "en";
+    }
+
+    return `${locale},en`;
+  }, []);
+
+  const getCountryCodes = useCallback((): string[] => {
+    const locale = Intl.DateTimeFormat().resolvedOptions().locale;
+    if (!locale) {
+      return [];
+    }
+
+    const normalizedLocale = locale.replace("_", "-");
+    const localeParts = normalizedLocale.split("-");
+    const region = localeParts.length >= 2 ? localeParts[1].toLowerCase() : "";
+    return /^[a-z]{2}$/.test(region) ? [region] : [];
+  }, []);
 
   // Debounced search function
-  const performSearch = useCallback(async (query: string) => {
-    if (query.trim().length < 2) {
-      setSearchState((prev) => ({
-        ...prev,
-        results: [],
-        showResults: false,
-        error: null,
-      }));
-      return;
-    }
-
-    setSearchState((prev) => ({
-      ...prev,
-      isLoading: true,
-      error: null,
-      showResults: true,
-    }));
-
-    try {
-      const results = await nominatimService.searchAddress(query.trim(), 8);
-
-      setSearchState((prev) => ({
-        ...prev,
-        results,
-        isLoading: false,
-        error: null,
-      }));
-    } catch (error) {
-      let errorMessage = "Search failed. Please try again.";
-
-      if (error instanceof NominatimServiceError) {
-        switch (error.code) {
-          case NominatimError.NO_RESULTS:
-            errorMessage = `No results found for "${query.trim()}"`;
-            break;
-          case NominatimError.NETWORK_ERROR:
-            errorMessage = "Network error. Please check your connection.";
-            break;
-          case NominatimError.RATE_LIMITED:
-            errorMessage = "Too many searches. Please wait a moment.";
-            break;
-          case NominatimError.SERVICE_UNAVAILABLE:
-            errorMessage = "Search service temporarily unavailable.";
-            break;
-          default:
-            errorMessage = error.message;
-        }
+  const performSearch = useCallback(
+    async (query: string) => {
+      if (query.trim().length < 2) {
+        latestSearchRequestIdRef.current += 1;
+        setSearchState((prev) => ({
+          ...prev,
+          results: [],
+          showResults: false,
+          error: null,
+        }));
+        return;
       }
 
+      const requestId = latestSearchRequestIdRef.current + 1;
+      latestSearchRequestIdRef.current = requestId;
+
       setSearchState((prev) => ({
         ...prev,
-        results: [],
-        isLoading: false,
-        error: errorMessage,
+        isLoading: true,
+        error: null,
+        showResults: true,
       }));
-    }
-  }, []);
+
+      try {
+        const results = await nominatimService.searchAddress(query.trim(), 8, {
+          userLocation: currentLocation || undefined,
+          countryCodes: getCountryCodes(),
+          acceptLanguage: getAcceptLanguage(),
+          preferredTypes: [
+            "station",
+            "bus_stop",
+            "train_station",
+            "residential",
+            "house",
+            "building",
+          ],
+        });
+
+        if (requestId !== latestSearchRequestIdRef.current) {
+          return;
+        }
+
+        setSearchState((prev) => ({
+          ...prev,
+          results,
+          isLoading: false,
+          error: null,
+        }));
+      } catch (error) {
+        let errorMessage = "Search failed. Please try again.";
+
+        if (error instanceof NominatimServiceError) {
+          switch (error.code) {
+            case NominatimError.NO_RESULTS:
+              errorMessage = `No results found for "${query.trim()}"`;
+              break;
+            case NominatimError.NETWORK_ERROR:
+              errorMessage = "Network error. Please check your connection.";
+              break;
+            case NominatimError.RATE_LIMITED:
+              errorMessage = "Too many searches. Please wait a moment.";
+              break;
+            case NominatimError.SERVICE_UNAVAILABLE:
+              errorMessage = "Search service temporarily unavailable.";
+              break;
+            default:
+              errorMessage = error.message;
+          }
+        }
+
+        if (requestId !== latestSearchRequestIdRef.current) {
+          return;
+        }
+
+        setSearchState((prev) => ({
+          ...prev,
+          results: [],
+          isLoading: false,
+          error: errorMessage,
+        }));
+      }
+    },
+    [currentLocation, getAcceptLanguage, getCountryCodes],
+  );
 
   // Handle search input changes with debouncing
   const handleSearchChange = useCallback(
@@ -180,6 +231,7 @@ const AddressSearchComponent: React.FC<AddressSearchComponentProps> = ({
   };
 
   const handleClearSearch = () => {
+    latestSearchRequestIdRef.current += 1;
     setSearchState({
       query: "",
       results: [],

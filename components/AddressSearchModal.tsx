@@ -2,7 +2,11 @@ import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect } from "react";
 import { Modal, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAppDispatch, useSearchHistory } from "../store/hooks";
+import {
+  useAppDispatch,
+  useCurrentLocation,
+  useSearchHistory,
+} from "../store/hooks";
 import {
   addToSearchHistory,
   loadSearchHistory,
@@ -24,6 +28,7 @@ const AddressSearchModal: React.FC<AddressSearchModalProps> = ({
 }) => {
   const dispatch = useAppDispatch();
   const searchHistory = useSearchHistory();
+  const currentLocation = useCurrentLocation();
 
   // Load search history when modal opens
   useEffect(() => {
@@ -83,6 +88,7 @@ const AddressSearchModal: React.FC<AddressSearchModalProps> = ({
               searchHistory={searchHistory}
               onAddToHistory={handleAddToHistory}
               showHistory={true}
+              currentLocation={currentLocation}
             />
           </View>
         </SafeAreaView>

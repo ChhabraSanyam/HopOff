@@ -1,10 +1,28 @@
 // OpenStreetMap Nominatim API service for free geocoding and address search
 import Constants from "expo-constants";
 import { AddressSearchResult, Coordinate, NominatimResult } from "../types";
-import { isValidCoordinate } from "../utils";
+import { calculateDistance, isValidCoordinate } from "../utils";
+
+export interface NominatimSearchOptions {
+  userLocation?: Coordinate;
+  viewbox?: {
+    north: number;
+    south: number;
+    east: number;
+    west: number;
+  };
+  bounded?: boolean;
+  countryCodes?: string[];
+  preferredTypes?: string[];
+  acceptLanguage?: string;
+}
 
 export interface NominatimService {
-  searchAddress(query: string, limit?: number): Promise<AddressSearchResult[]>;
+  searchAddress(
+    query: string,
+    limit?: number,
+    options?: NominatimSearchOptions,
+  ): Promise<AddressSearchResult[]>;
   reverseGeocode(coordinate: Coordinate): Promise<AddressSearchResult | null>;
   isServiceAvailable(): Promise<boolean>;
   clearCache(): void;
@@ -54,6 +72,7 @@ export class NominatimServiceImpl implements NominatimService {
   async searchAddress(
     query: string,
     limit: number = 5,
+    options: NominatimSearchOptions = {},
   ): Promise<AddressSearchResult[]> {
     try {
       // Validate query
@@ -64,10 +83,10 @@ export class NominatimServiceImpl implements NominatimService {
         );
       }
 
-      const trimmedQuery = query.trim();
+      const trimmedQuery = this.normalizeQuery(query);
 
       // Check cache first
-      const cacheKey = `${trimmedQuery}_${limit}`;
+      const cacheKey = this.buildSearchCacheKey(trimmedQuery, limit, options);
       const cached = this.searchCache.get(cacheKey);
       if (cached && Date.now() - cached.timestamp < this.cacheExpiry) {
         return cached.results;
@@ -76,15 +95,38 @@ export class NominatimServiceImpl implements NominatimService {
       // Respect rate limiting
       await this.respectRateLimit();
 
+      const effectiveViewbox =
+        options.viewbox ??
+        (options.userLocation
+          ? this.createViewboxFromLocation(options.userLocation)
+          : undefined);
+
+      const countryCodes = (options.countryCodes || [])
+        .map((code) => code.trim().toLowerCase())
+        .filter((code) => /^[a-z]{2}$/.test(code));
+
       const searchParams = new URLSearchParams({
         q: trimmedQuery,
-        format: "json",
+        format: "jsonv2",
         limit: Math.min(limit, 10).toString(), // Cap at 10 results
         addressdetails: "1",
-        extratags: "1",
-        namedetails: "1",
-        "accept-language": "en", // Prefer English results
+        extratags: "0",
+        namedetails: "0",
+        dedupe: "1",
+        "accept-language": options.acceptLanguage || "en",
       });
+
+      if (effectiveViewbox) {
+        searchParams.set(
+          "viewbox",
+          `${effectiveViewbox.west},${effectiveViewbox.north},${effectiveViewbox.east},${effectiveViewbox.south}`,
+        );
+        searchParams.set("bounded", options.bounded ? "1" : "0");
+      }
+
+      if (countryCodes.length > 0) {
+        searchParams.set("countrycodes", countryCodes.join(","));
+      }
 
       const url = `${this.baseUrl}/search?${searchParams.toString()}`;
 
@@ -124,13 +166,19 @@ export class NominatimServiceImpl implements NominatimService {
         this.convertNominatimResult(item, index),
       );
 
-      // Sort by importance (higher is better)
-      results.sort((a, b) => b.importance - a.importance);
+      // Rank using textual relevance + location + type preference + global importance
+      const rankedResults = this.rankSearchResults(results, trimmedQuery, {
+        ...options,
+        viewbox: effectiveViewbox,
+      });
 
       // Cache the results
-      this.searchCache.set(cacheKey, { results, timestamp: Date.now() });
+      this.searchCache.set(cacheKey, {
+        results: rankedResults,
+        timestamp: Date.now(),
+      });
 
-      return results;
+      return rankedResults;
     } catch (error) {
       if (error instanceof NominatimServiceError) {
         throw error;
@@ -323,6 +371,132 @@ export class NominatimServiceImpl implements NominatimService {
   clearCache(): void {
     this.searchCache.clear();
     this.reverseGeocodeCache.clear();
+  }
+
+  private normalizeQuery(query: string): string {
+    return query.trim().replace(/\s+/g, " ");
+  }
+
+  private buildSearchCacheKey(
+    query: string,
+    limit: number,
+    options: NominatimSearchOptions,
+  ): string {
+    const normalizedCountryCodes = (options.countryCodes || [])
+      .map((code) => code.trim().toLowerCase())
+      .filter((code) => /^[a-z]{2}$/.test(code))
+      .sort()
+      .join(",");
+
+    const normalizedViewbox = options.viewbox
+      ? `${options.viewbox.north.toFixed(2)}_${options.viewbox.south.toFixed(2)}_${options.viewbox.east.toFixed(2)}_${options.viewbox.west.toFixed(2)}`
+      : "none";
+
+    const userLocation = options.userLocation
+      ? `${options.userLocation.latitude.toFixed(2)}_${options.userLocation.longitude.toFixed(2)}`
+      : "none";
+
+    return [
+      query.toLowerCase(),
+      limit,
+      normalizedCountryCodes || "none",
+      options.acceptLanguage || "en",
+      options.bounded ? "1" : "0",
+      normalizedViewbox,
+      userLocation,
+    ].join("|");
+  }
+
+  private createViewboxFromLocation(location: Coordinate): {
+    north: number;
+    south: number;
+    east: number;
+    west: number;
+  } {
+    const latitudeDelta = 0.12;
+    const longitudeDelta = 0.12;
+
+    return {
+      north: Math.min(90, location.latitude + latitudeDelta),
+      south: Math.max(-90, location.latitude - latitudeDelta),
+      east: Math.min(180, location.longitude + longitudeDelta),
+      west: Math.max(-180, location.longitude - longitudeDelta),
+    };
+  }
+
+  private rankSearchResults(
+    results: AddressSearchResult[],
+    query: string,
+    options: NominatimSearchOptions,
+  ): AddressSearchResult[] {
+    const normalizedQuery = query.toLowerCase();
+    const queryTokens = normalizedQuery
+      .split(" ")
+      .map((token) => token.trim())
+      .filter(Boolean);
+    const preferredTypes = new Set(
+      (options.preferredTypes || []).map((type) => type.toLowerCase()),
+    );
+
+    return [...results].sort((a, b) => {
+      const scoreA = this.computeResultScore(
+        a,
+        normalizedQuery,
+        queryTokens,
+        options.userLocation,
+        preferredTypes,
+      );
+      const scoreB = this.computeResultScore(
+        b,
+        normalizedQuery,
+        queryTokens,
+        options.userLocation,
+        preferredTypes,
+      );
+
+      return scoreB - scoreA;
+    });
+  }
+
+  private computeResultScore(
+    result: AddressSearchResult,
+    normalizedQuery: string,
+    queryTokens: string[],
+    userLocation?: Coordinate,
+    preferredTypes: Set<string> = new Set(),
+  ): number {
+    const haystack = `${result.displayName} ${result.address}`.toLowerCase();
+
+    let textScore = 0;
+    if (haystack.startsWith(normalizedQuery)) {
+      textScore = 1;
+    } else if (haystack.includes(normalizedQuery)) {
+      textScore = 0.8;
+    } else if (queryTokens.length > 0) {
+      const matchedTokens = queryTokens.filter((token) => haystack.includes(token));
+      textScore = matchedTokens.length / queryTokens.length;
+    }
+
+    let distanceScore = 0;
+    if (userLocation) {
+      try {
+        const distanceMeters = calculateDistance(userLocation, result.coordinate);
+        const maxDistanceForScore = 25000;
+        distanceScore = Math.max(0, 1 - distanceMeters / maxDistanceForScore);
+      } catch {
+        distanceScore = 0;
+      }
+    }
+
+    const typeScore = preferredTypes.has(result.type.toLowerCase()) ? 1 : 0;
+    const importanceScore = Math.max(0, Math.min(result.importance, 1));
+
+    return (
+      textScore * 0.5 +
+      distanceScore * 0.25 +
+      typeScore * 0.15 +
+      importanceScore * 0.1
+    );
   }
 
   /**
