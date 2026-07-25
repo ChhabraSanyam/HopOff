@@ -3,7 +3,7 @@ import { ConfigContext, ExpoConfig } from "expo/config";
 export default ({ config }: ConfigContext): ExpoConfig => ({
   name: "HopOff!",
   slug: "hopoff",
-  version: "2.2.0",
+  version: "2.3.0",
   orientation: "portrait",
   icon: "./assets/images/icon.png",
   scheme: "hopoff",
@@ -65,6 +65,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ],
     "expo-task-manager",
     "expo-sqlite",
+    "expo-font",
   ],
   experiments: {
     typedRoutes: true,

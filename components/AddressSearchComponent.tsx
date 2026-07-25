@@ -63,18 +63,6 @@ const AddressSearchComponent: React.FC<AddressSearchComponentProps> = ({
     return `${locale},en`;
   }, []);
 
-  const getCountryCodes = useCallback((): string[] => {
-    const locale = Intl.DateTimeFormat().resolvedOptions().locale;
-    if (!locale) {
-      return [];
-    }
-
-    const normalizedLocale = locale.replace("_", "-");
-    const localeParts = normalizedLocale.split("-");
-    const region = localeParts.length >= 2 ? localeParts[1].toLowerCase() : "";
-    return /^[a-z]{2}$/.test(region) ? [region] : [];
-  }, []);
-
   // Debounced search function
   const performSearch = useCallback(
     async (query: string) => {
@@ -102,7 +90,6 @@ const AddressSearchComponent: React.FC<AddressSearchComponentProps> = ({
       try {
         const results = await nominatimService.searchAddress(query.trim(), 8, {
           userLocation: currentLocation || undefined,
-          countryCodes: getCountryCodes(),
           acceptLanguage: getAcceptLanguage(),
           preferredTypes: [
             "station",
@@ -158,7 +145,7 @@ const AddressSearchComponent: React.FC<AddressSearchComponentProps> = ({
         }));
       }
     },
-    [currentLocation, getAcceptLanguage, getCountryCodes],
+    [currentLocation, getAcceptLanguage],
   );
 
   // Handle search input changes with debouncing

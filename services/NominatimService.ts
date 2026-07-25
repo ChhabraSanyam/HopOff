@@ -560,7 +560,7 @@ export class NominatimServiceImpl implements NominatimService {
         "viewbox",
         `${options.viewbox.west},${options.viewbox.north},${options.viewbox.east},${options.viewbox.south}`,
       );
-      const bounded = options.bounded !== undefined ? options.bounded : true;
+      const bounded = options.bounded !== undefined ? options.bounded : false;
       searchParams.set("bounded", bounded ? "1" : "0");
     }
 
